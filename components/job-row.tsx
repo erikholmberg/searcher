@@ -1,0 +1,130 @@
+"use client";
+
+import * as React from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { WorkModeBadge } from "@/components/work-mode-badge";
+import { api } from "@/lib/api-client";
+import { RoleTypeJobDto } from "@/lib/types";
+import { Star, EyeOff, ExternalLink, Undo2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  job: RoleTypeJobDto;
+  onChanged: (job: RoleTypeJobDto) => void;
+  showHiddenControls?: boolean;
+}
+
+export function JobRow({ job, onChanged, showHiddenControls = false }: Props) {
+  const [busy, setBusy] = React.useState(false);
+
+  async function patch(state: { favorite?: boolean; hidden?: boolean }) {
+    const next: RoleTypeJobDto = {
+      ...job,
+      favorite: state.favorite ?? job.favorite,
+      hidden: state.hidden ?? job.hidden,
+    };
+    onChanged(next);
+    setBusy(true);
+    try {
+      await api(`/api/jobs/${job.listing.id}/state`, {
+        method: "PATCH",
+        body: JSON.stringify(state),
+      });
+    } catch (err) {
+      onChanged(job);
+      toast.error((err as Error).message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const postedLabel = job.listing.postedAt
+    ? new Date(job.listing.postedAt).toLocaleDateString()
+    : null;
+
+  return (
+    <Card className={cn("p-3", job.favorite && "ring-1 ring-amber-400/60")}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href={job.listing.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium hover:underline truncate"
+            >
+              {job.listing.title}
+            </a>
+            <ExternalLink className="size-3 text-muted-foreground shrink-0" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {job.listing.company}
+            {job.listing.locationDisplay
+              ? ` · ${job.listing.locationDisplay}`
+              : " · Location not listed"}
+            {postedLabel ? ` · ${postedLabel}` : ""}
+          </p>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <WorkModeBadge mode={job.listing.workMode} />
+            <span className="text-muted-foreground text-xs">
+              {job.listing.source}
+            </span>
+          </div>
+          {job.listing.descriptionSnippet && (
+            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+              {job.listing.descriptionSnippet}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1 shrink-0">
+          {showHiddenControls ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={busy}
+              onClick={() => patch({ hidden: false })}
+              aria-label="Unhide"
+              title="Unhide"
+            >
+              <Undo2 className="size-4" />
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant={job.favorite ? "default" : "outline"}
+                size="icon-sm"
+                disabled={busy}
+                onClick={() => patch({ favorite: !job.favorite })}
+                aria-label={job.favorite ? "Unfavorite" : "Favorite"}
+                title={job.favorite ? "Unfavorite" : "Favorite"}
+              >
+                <Star
+                  className={cn(
+                    "size-4",
+                    job.favorite && "fill-current text-amber-400",
+                  )}
+                />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={busy}
+                onClick={() => patch({ hidden: true })}
+                aria-label="Hide"
+                title="Hide"
+              >
+                <EyeOff className="size-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}

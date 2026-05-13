@@ -4,28 +4,28 @@ overview: "Greenfield full-stack job search app: users define multiple role “t
 todos:
   - id: scaffold-next
     content: Scaffold Next.js (TS, App Router), Tailwind, shadcn/ui (`npx shadcn@latest init`), ESLint, `.env.example` placeholders
-    status: in_progress
+    status: completed
   - id: db-prisma
     content: Add Prisma schema for Supabase Postgres (User + Auth.js adapter tables, RoleType, RoleTypeSource, JobListing, RoleTypeJob, UserJobState) + unique indexes + migrations; configure `DATABASE_URL` (pooled) and `DIRECT_URL`
-    status: pending
+    status: completed
   - id: auth-authjs
     content: Integrate Auth.js with GitHub OAuth, `app/api/auth/[...nextauth]/route` (or v5 equivalent), protected routes, Prisma adapter, User upsert — verify env names vs installed Auth.js version
-    status: pending
+    status: completed
   - id: ai-gateway
     content: Add Vercel AI SDK + Gateway (`AI_GATEWAY_API_KEY`), shared `lib/ai.ts`, first route (e.g. fit summary or query assist)
-    status: pending
+    status: completed
   - id: role-crud
     content: RoleType + RoleTypeSource CRUD (API + minimal UI) before refresh/find-more
-    status: pending
+    status: completed
   - id: role-from-url
     content: Add suggest-from-job-url (allowlisted fetch + Gateway generateObject) + preview/confirm UI
-    status: pending
+    status: completed
   - id: providers-ingest
     content: Implement job providers + refresh/find-more (paginationState, dedupe by externalId per role type)
-    status: pending
+    status: completed
   - id: ui-dashboard
     content: "Shadcn-based UI: job lists (location/workMode badges), Find more + refresh, favorite + hide, toasts/skeletons"
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -148,7 +148,7 @@ flowchart LR
 
 - **Monorepo-style single app** recommended: [Next.js](https://nextjs.org/) (App Router) for UI + API routes, one deployable unit.
 - **UI kit:** **[shadcn/ui](https://ui.shadcn.com/)** on **Tailwind CSS** (Radix primitives; components live in-repo under `components/ui`, styled with your design tokens). Use the CLI to add primitives as needed (**Button**, **Card**, **Badge**, **Input**, **Label**, **Textarea**, **Select**, **Dialog** / **Sheet**, **Table**, **Skeleton**, **Sonner** or **Toast**, **DropdownMenu**, **Tabs**, **ScrollArea**). Do **not** add a second component library for app chrome; compose features from shadcn patterns.
-- **Database**: **Postgres** with **[Prisma](https://www.prisma.io/)** (locked). **Production:** **[Supabase](https://supabase.com/)** (managed Postgres + project dashboard). **Local dev:** Supabase CLI (`supabase start`) or plain Docker Postgres — schema and migrations identical. **Connection on Vercel:** use Supabase's **pooled** connection string for `DATABASE_URL` (PgBouncer, transaction mode, e.g. `?pgbouncer=true&connection_limit=1`) and the **direct** connection string for `DIRECT_URL` (Prisma needs the direct URL for `prisma migrate`). Both go in `.env.example`.
+- **Database**: **Postgres** with **[Prisma](https://www.prisma.io/)** (locked). **Production:** **[Supabase](https://supabase.com/)** (managed Postgres + project dashboard). **Local dev:** local PostgreSQL (Homebrew, Postgres.app, etc.) or Supabase CLI (`supabase start`) — schema and migrations identical. **Connection on Vercel:** use Supabase's **pooled** connection string for `DATABASE_URL` (PgBouncer, transaction mode, e.g. `?pgbouncer=true&connection_limit=1`) and the **direct** connection string for `DIRECT_URL` (Prisma needs the direct URL for `prisma migrate`). Both go in `.env.example`.
 - **Auth**: **[Auth.js](https://authjs.dev/)** (v5) with the **GitHub** OAuth provider as the **sole MVP sign-in** (database adapter → Postgres; link GitHub `id` / `sub` to `User`). Register a [GitHub OAuth App](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app) per environment; callback URL matches Auth.js `/api/auth/callback/github`. **Env (server-only, `.env.example`):** `DATABASE_URL`, `AUTH_SECRET`, trust/host and **public app URL** vars as required by your Auth.js version (`AUTH_URL` / `NEXTAUTH_URL` style), plus GitHub client id/secret — **verify exact names** in the Auth.js + `@auth/core` docs for your release (`AUTH_GITHUB_ID` vs `GITHUB_CLIENT_ID` patterns).
 
 ### Authentication (MVP locked + optional later)
@@ -269,7 +269,7 @@ Server-side sorting per type: `favorite DESC`, then optional **AI match score** 
 ## Build readiness (final checklist)
 
 - **Stack locked:** Next.js (App Router) + **Tailwind + shadcn/ui** + **Prisma** + **Supabase Postgres (prod)** + **Auth.js GitHub-only** + **Vercel AI Gateway** for all LLMs.
-- **Deployment target:** **[Vercel](https://vercel.com/)** (aligns with AI Gateway and Next.js). Database is **Supabase** in production; local dev uses Supabase CLI or Docker Postgres. Configure prod + preview env vars in the Vercel dashboard.
+- **Deployment target:** **[Vercel](https://vercel.com/)** (aligns with AI Gateway and Next.js). Database is **Supabase** in production; local dev uses local Postgres or Supabase CLI. Configure prod + preview env vars in the Vercel dashboard.
 - **Env template:** `.env.example` lists `DATABASE_URL` (Supabase **pooled** URL in prod), `DIRECT_URL` (Supabase **direct** URL — used by Prisma migrations), `AUTH_SECRET`, app URL / trust-host vars per Auth.js, GitHub OAuth credentials, `AI_GATEWAY_API_KEY`, and placeholder **job API** keys (e.g. Adzuna) for when you reach step 9.
 - **Validation:** Zod schemas at every API route boundary; reuse Zod types between server and client where helpful.
 - **Auth route:** Scaffold `app/api/auth/...` per current [Auth.js Next.js docs](https://authjs.dev/getting-started/installation?framework=next.js); register GitHub OAuth callback for prod and localhost.
