@@ -23,6 +23,12 @@ export interface FetchPageResult {
 
 export interface JobProvider<Config = unknown, State = unknown> {
   kind: SourceKindString;
+  /**
+   * When true, `ingest` in refresh mode calls `fetchPage` in a loop (advancing
+   * `paginationState`) until exhausted or a safety cap—used for snapshot
+   * boards that slice client-side so one refresh still fills the bucket.
+   */
+  expandRefreshToAllPages?: boolean;
   fetchPage(
     config: Config,
     paginationState: State | null,

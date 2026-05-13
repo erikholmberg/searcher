@@ -1,4 +1,9 @@
 import type { JobProvider } from "@/lib/jobs/types";
+import {
+  JOB_BOARD_SLICE_SIZE,
+  resolveBoardSliceStart,
+  type BoardSliceState,
+} from "@/lib/jobs/slice-pagination";
 import { parseDate, stripHtml } from "@/lib/jobs/utils";
 import type { AggregatorQueryConfig } from "@/lib/schemas";
 
@@ -20,14 +25,23 @@ interface RemotiveResp {
 }
 
 /**
- * Remotive returns a full match list with optional query/category/limit. There
- * is no page cursor, so this provider is "diff mode": each fetch returns the
- * whole result list and dedupe happens at the RoleTypeJob layer.
+ * Remotive returns up to `limit` jobs in one response; we slice so find-more
+ * can walk through the list in chunks (API has no cursor beyond limit).
  */
-export const remotiveProvider: JobProvider<AggregatorQueryConfig, never> = {
+export const remotiveProvider: JobProvider<AggregatorQueryConfig, BoardSliceState> = {
   kind: "remotive_query",
+  expandRefreshToAllPages: true,
 
-  async fetchPage(config) {
+  async fetchPage(config, paginationState) {
+    const resolved = resolveBoardSliceStart(paginationState);
+    if (resolved.status === "done") {
+      return {
+        jobs: [],
+        nextState: { completed: true },
+        exhausted: true,
+      };
+    }
+
     const url = new URL("https://remotive.com/api/remote-jobs");
     if (config.keywords) url.searchParams.set("search", config.keywords);
     url.searchParams.set(
@@ -41,7 +55,12 @@ export const remotiveProvider: JobProvider<AggregatorQueryConfig, never> = {
     if (!res.ok) throw new Error(`Remotive fetch failed (${res.status})`);
     const body = (await res.json()) as RemotiveResp;
 
-    const jobs = body.jobs.map((j) => ({
+    const slice = body.jobs.slice(
+      resolved.offset,
+      resolved.offset + JOB_BOARD_SLICE_SIZE,
+    );
+
+    const jobs = slice.map((j) => ({
       externalId: `remotive:${j.id}`,
       source: "remotive",
       title: j.title,
@@ -53,6 +72,12 @@ export const remotiveProvider: JobProvider<AggregatorQueryConfig, never> = {
       workMode: "remote" as const,
     }));
 
-    return { jobs, nextState: null, exhausted: true };
+    const nextOffset = resolved.offset + slice.length;
+    const exhausted = nextOffset >= body.jobs.length;
+    const nextState: BoardSliceState = exhausted
+      ? { completed: true }
+      : { offset: nextOffset };
+
+    return { jobs, nextState, exhausted };
   },
 };

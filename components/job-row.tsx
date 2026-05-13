@@ -7,16 +7,26 @@ import { Card } from "@/components/ui/card";
 import { WorkModeBadge } from "@/components/work-mode-badge";
 import { api } from "@/lib/api-client";
 import { RoleTypeJobDto } from "@/lib/types";
-import { Star, EyeOff, ExternalLink, Undo2 } from "lucide-react";
+import { Star, EyeOff, ExternalLink, Undo2, Trash2 } from "lucide-react";
+import { stripHtml } from "@/lib/jobs/utils";
 import { cn } from "@/lib/utils";
 
 interface Props {
   job: RoleTypeJobDto;
+  roleTypeId: string;
   onChanged: (job: RoleTypeJobDto) => void;
+  /** Called after the job is removed from this role type (listing id). */
+  onRemoved: (listingId: string) => void;
   showHiddenControls?: boolean;
 }
 
-export function JobRow({ job, onChanged, showHiddenControls = false }: Props) {
+export function JobRow({
+  job,
+  roleTypeId,
+  onChanged,
+  onRemoved,
+  showHiddenControls = false,
+}: Props) {
   const [busy, setBusy] = React.useState(false);
 
   async function patch(state: { favorite?: boolean; hidden?: boolean }) {
@@ -35,6 +45,28 @@ export function JobRow({ job, onChanged, showHiddenControls = false }: Props) {
     } catch (err) {
       onChanged(job);
       toast.error((err as Error).message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeFromList() {
+    if (
+      !confirm(
+        "Remove this job from this list? It will not reappear after Refresh or Find more.",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await api(`/api/role-types/${roleTypeId}/jobs/${job.listing.id}`, {
+        method: "DELETE",
+      });
+      onRemoved(job.listing.id);
+      toast.success("Job removed");
+    } catch (err) {
+      toast.error((err as Error).message || "Remove failed");
     } finally {
       setBusy(false);
     }
@@ -73,25 +105,38 @@ export function JobRow({ job, onChanged, showHiddenControls = false }: Props) {
             </span>
           </div>
           {job.listing.descriptionSnippet && (
-            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
-              {job.listing.descriptionSnippet}
+            <p className="text-sm text-muted-foreground mt-2 line-clamp-4 break-words">
+              {stripHtml(job.listing.descriptionSnippet, 1500)}
             </p>
           )}
         </div>
 
         <div className="flex flex-col gap-1 shrink-0">
           {showHiddenControls ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              disabled={busy}
-              onClick={() => patch({ hidden: false })}
-              aria-label="Unhide"
-              title="Unhide"
-            >
-              <Undo2 className="size-4" />
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={busy}
+                onClick={() => patch({ hidden: false })}
+                aria-label="Unhide"
+                title="Unhide"
+              >
+                <Undo2 className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={busy}
+                onClick={() => removeFromList()}
+                aria-label="Remove from list"
+                title="Remove from list"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </>
           ) : (
             <>
               <Button
@@ -120,6 +165,17 @@ export function JobRow({ job, onChanged, showHiddenControls = false }: Props) {
                 title="Hide"
               >
                 <EyeOff className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={busy}
+                onClick={() => removeFromList()}
+                aria-label="Remove from list"
+                title="Remove from list"
+              >
+                <Trash2 className="size-4" />
               </Button>
             </>
           )}

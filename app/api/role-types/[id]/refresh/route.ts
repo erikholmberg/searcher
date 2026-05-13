@@ -10,7 +10,8 @@ export const maxDuration = 60;
 /**
  * POST /api/role-types/:id/refresh
  *
- * Resets paginationState to the first window for every source and ingests.
+ * Resets pagination to the start for each source. Ingestion may pull multiple
+ * windows in one request for board-style providers (see expandRefreshToAllPages).
  * Existing RoleTypeJob links are preserved (unique constraint).
  */
 export async function POST(

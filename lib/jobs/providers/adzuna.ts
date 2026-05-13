@@ -1,4 +1,8 @@
 import type { JobProvider } from "@/lib/jobs/types";
+import {
+  parseAggregatorPageState,
+  type AggregatorPageState,
+} from "@/lib/jobs/slice-pagination";
 import { inferWorkMode, parseDate, stripHtml } from "@/lib/jobs/utils";
 import type { AggregatorQueryConfig } from "@/lib/schemas";
 
@@ -17,14 +21,19 @@ interface AdzunaResp {
   count: number;
 }
 
-interface State {
-  page: number;
-}
-
-export const adzunaProvider: JobProvider<AggregatorQueryConfig, State> = {
+export const adzunaProvider: JobProvider<AggregatorQueryConfig, AggregatorPageState> = {
   kind: "adzuna_query",
 
   async fetchPage(config, paginationState) {
+    const nav = parseAggregatorPageState(paginationState);
+    if (!("page" in nav)) {
+      return {
+        jobs: [],
+        nextState: { completed: true },
+        exhausted: true,
+      };
+    }
+    const page = nav.page;
     const appId = process.env.ADZUNA_APP_ID;
     const appKey = process.env.ADZUNA_APP_KEY;
     if (!appId || !appKey) {
@@ -33,7 +42,6 @@ export const adzunaProvider: JobProvider<AggregatorQueryConfig, State> = {
       );
     }
     const country = (config.country ?? "us").toLowerCase();
-    const page = paginationState?.page ?? 1;
     const url = new URL(
       `https://api.adzuna.com/v1/api/jobs/${country}/search/${page}`,
     );
@@ -64,7 +72,7 @@ export const adzunaProvider: JobProvider<AggregatorQueryConfig, State> = {
     const exhausted = jobs.length === 0;
     return {
       jobs,
-      nextState: exhausted ? null : { page: page + 1 },
+      nextState: exhausted ? { completed: true } : { page: page + 1 },
       exhausted,
     };
   },

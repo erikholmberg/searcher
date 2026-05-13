@@ -97,8 +97,22 @@ model RoleType {
   user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   sources RoleTypeSource[]
   jobs    RoleTypeJob[]
+  dismissedJobs RoleTypeDismissedJob[]
 
   @@index([userId])
+}
+
+// Jobs removed from a role type by the user; ingest skips these externalIds for this bucket.
+model RoleTypeDismissedJob {
+  id         String   @id @default(cuid())
+  roleTypeId String
+  externalId String
+  createdAt  DateTime @default(now())
+
+  roleType RoleType @relation(fields: [roleTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([roleTypeId, externalId])
+  @@index([roleTypeId])
 }
 
 // Provider-specific source attached to a RoleType.

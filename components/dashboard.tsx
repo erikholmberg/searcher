@@ -66,6 +66,21 @@ export function Dashboard() {
     );
   }
 
+  function removeLocalJob(roleTypeId: string, listingId: string) {
+    setRoleTypes((all) =>
+      all
+        ? all.map((rt) =>
+            rt.id === roleTypeId
+              ? {
+                  ...rt,
+                  jobs: rt.jobs.filter((j) => j.listing.id !== listingId),
+                }
+              : rt,
+          )
+        : all,
+    );
+  }
+
   async function refresh(roleTypeId: string) {
     setRefreshing(roleTypeId);
     try {
@@ -227,7 +242,7 @@ export function Dashboard() {
                   disabled={
                     refreshing === selected.id || selected.sources.length === 0
                   }
-                  title="Reset and re-sync the first window of each source"
+                  title="Re-sync from the start of each source (for Greenhouse/Lever/Remotive, loads every chunk in one go)"
                 >
                   {refreshing === selected.id ? (
                     <Loader2 className="mr-1 size-4 animate-spin" />
@@ -242,6 +257,7 @@ export function Dashboard() {
                   disabled={
                     findingMore === selected.id || selected.sources.length === 0
                   }
+                  title="Fetch the next page or chunk from each source"
                 >
                   {findingMore === selected.id ? (
                     <Loader2 className="mr-1 size-4 animate-spin" />
@@ -263,7 +279,7 @@ export function Dashboard() {
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-3 max-w-3xl">
+              <div className="p-4 space-y-3 w-full min-w-0">
                 {selected.sources.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     No sources on this role type yet. Click{" "}
@@ -279,8 +295,12 @@ export function Dashboard() {
                 {visibleJobs.map((j) => (
                   <JobRow
                     key={j.id}
+                    roleTypeId={selected.id}
                     job={j}
                     onChanged={(next) => updateLocalJob(selected.id, next)}
+                    onRemoved={(listingId) =>
+                      removeLocalJob(selected.id, listingId)
+                    }
                   />
                 ))}
 
@@ -298,8 +318,12 @@ export function Dashboard() {
                       hiddenJobs.map((j) => (
                         <JobRow
                           key={j.id}
+                          roleTypeId={selected.id}
                           job={j}
                           onChanged={(next) => updateLocalJob(selected.id, next)}
+                          onRemoved={(listingId) =>
+                            removeLocalJob(selected.id, listingId)
+                          }
                           showHiddenControls
                         />
                       ))}

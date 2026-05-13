@@ -1,8 +1,10 @@
 import type { WorkMode } from "@/lib/types";
+import { decodeHtmlEntities } from "@/lib/jobs/utils";
 
 /** Strip tags / boilerplate blocks; cap length for prompts. */
 export function stripHtmlToText(input: string, max = 12000): string {
-  return input
+  const decoded = decodeHtmlEntities(input);
+  return decoded
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
@@ -19,35 +21,6 @@ export function inferWorkMode(text: string | null | undefined): WorkMode {
   if (/\bhybrid\b/.test(t)) return "hybrid";
   if (/\bon[- ]?site\b/.test(t) || /\bin[- ]office\b/.test(t)) return "onsite";
   return "unknown";
-}
-
-export function decodeBasicHtmlEntities(s: string): string {
-  return s
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&#(\d+);/g, (_, num: string) => {
-      const n = Number(num);
-      if (!Number.isFinite(n) || n < 0 || n > 0x10ffff) return _;
-      try {
-        return String.fromCodePoint(n);
-      } catch {
-        return _;
-      }
-    })
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => {
-      const n = parseInt(hex, 16);
-      if (!Number.isFinite(n) || n < 0 || n > 0x10ffff) return _;
-      try {
-        return String.fromCodePoint(n);
-      } catch {
-        return _;
-      }
-    });
 }
 
 function metaByProp(
@@ -68,7 +41,7 @@ function metaByProp(
   ];
   for (const re of patterns) {
     const m = html.match(re);
-    if (m?.[1]) return decodeBasicHtmlEntities(m[1].trim());
+    if (m?.[1]) return decodeHtmlEntities(m[1].trim());
   }
   return null;
 }
@@ -81,7 +54,7 @@ export function extractGenericPageSignals(html: string): {
   const ogTitle = metaByProp(html, "og:title", "property");
   const titleTag = html.match(/<title[^>]*>([^<]{1,500})<\/title>/i);
   const titleFromTag = titleTag?.[1]
-    ? decodeBasicHtmlEntities(titleTag[1].trim())
+    ? decodeHtmlEntities(titleTag[1].trim())
     : null;
   const title = ogTitle ?? titleFromTag;
   return {

@@ -1,4 +1,8 @@
 import type { JobProvider } from "@/lib/jobs/types";
+import {
+  parseAggregatorPageState,
+  type AggregatorPageState,
+} from "@/lib/jobs/slice-pagination";
 import { inferWorkMode, parseDate, stripHtml } from "@/lib/jobs/utils";
 import type { AggregatorQueryConfig } from "@/lib/schemas";
 
@@ -21,15 +25,22 @@ interface ArbeitnowResp {
   meta: { current_page: number; last_page: number; per_page: number; total: number };
 }
 
-interface State {
-  page: number;
-}
-
-export const arbeitnowProvider: JobProvider<AggregatorQueryConfig, State> = {
+export const arbeitnowProvider: JobProvider<
+  AggregatorQueryConfig,
+  AggregatorPageState
+> = {
   kind: "arbeitnow_query",
 
   async fetchPage(config, paginationState) {
-    const page = paginationState?.page ?? 1;
+    const nav = parseAggregatorPageState(paginationState);
+    if (!("page" in nav)) {
+      return {
+        jobs: [],
+        nextState: { completed: true },
+        exhausted: true,
+      };
+    }
+    const page = nav.page;
     const url = new URL("https://www.arbeitnow.com/api/job-board-api");
     url.searchParams.set("page", String(page));
 
@@ -74,7 +85,7 @@ export const arbeitnowProvider: JobProvider<AggregatorQueryConfig, State> = {
     const exhausted = body.meta.current_page >= body.meta.last_page;
     return {
       jobs,
-      nextState: exhausted ? null : { page: page + 1 },
+      nextState: exhausted ? { completed: true } : { page: page + 1 },
       exhausted,
     };
   },

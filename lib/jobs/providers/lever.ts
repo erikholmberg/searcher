@@ -1,4 +1,9 @@
 import type { JobProvider } from "@/lib/jobs/types";
+import {
+  JOB_BOARD_SLICE_SIZE,
+  resolveBoardSliceStart,
+  type BoardSliceState,
+} from "@/lib/jobs/slice-pagination";
 import { inferWorkMode, parseDate, stripHtml } from "@/lib/jobs/utils";
 import type { AtsBoardConfig } from "@/lib/schemas";
 import type { WorkMode } from "@/lib/types";
@@ -16,12 +21,22 @@ interface LeverJob {
 }
 
 /**
- * Lever returns the full posting list per call. Diff mode like Greenhouse.
+ * Lever returns the full posting list per HTTP call; we slice like Greenhouse.
  */
-export const leverProvider: JobProvider<AtsBoardConfig, never> = {
+export const leverProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
   kind: "lever_board",
+  expandRefreshToAllPages: true,
 
-  async fetchPage(config) {
+  async fetchPage(config, paginationState) {
+    const resolved = resolveBoardSliceStart(paginationState);
+    if (resolved.status === "done") {
+      return {
+        jobs: [],
+        nextState: { completed: true },
+        exhausted: true,
+      };
+    }
+
     const site = encodeURIComponent(config.boardToken);
     const url = `https://api.lever.co/v0/postings/${site}?mode=json`;
     const res = await fetch(url, {
@@ -35,7 +50,12 @@ export const leverProvider: JobProvider<AtsBoardConfig, never> = {
       ? body.filter((j) => j.text?.toLowerCase().includes(filter))
       : body;
 
-    const jobs = filtered.map((j) => {
+    const slice = filtered.slice(
+      resolved.offset,
+      resolved.offset + JOB_BOARD_SLICE_SIZE,
+    );
+
+    const jobs = slice.map((j) => {
       const snippet =
         j.descriptionPlain?.slice(0, 800) ??
         (j.description ? stripHtml(j.description) : null);
@@ -65,6 +85,12 @@ export const leverProvider: JobProvider<AtsBoardConfig, never> = {
       };
     });
 
-    return { jobs, nextState: null, exhausted: true };
+    const nextOffset = resolved.offset + slice.length;
+    const exhausted = nextOffset >= filtered.length;
+    const nextState: BoardSliceState = exhausted
+      ? { completed: true }
+      : { offset: nextOffset };
+
+    return { jobs, nextState, exhausted };
   },
 };

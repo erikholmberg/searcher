@@ -1,4 +1,9 @@
 import type { JobProvider } from "@/lib/jobs/types";
+import {
+  JOB_BOARD_SLICE_SIZE,
+  resolveBoardSliceStart,
+  type BoardSliceState,
+} from "@/lib/jobs/slice-pagination";
 import { inferWorkMode, stripHtml } from "@/lib/jobs/utils";
 import type { AtsBoardConfig } from "@/lib/schemas";
 
@@ -17,14 +22,23 @@ interface GreenhouseResp {
 }
 
 /**
- * Greenhouse returns the full board list each call. We operate in "diff mode":
- * each fetch returns all current jobs and dedupe happens at the RoleTypeJob
- * layer (unique on (roleTypeId, jobListingId)).
+ * Greenhouse returns the full board list each HTTP call. We slice it into
+ * windows so "find more" can append the next chunk; dedupe stays at RoleTypeJob.
  */
-export const greenhouseProvider: JobProvider<AtsBoardConfig, never> = {
+export const greenhouseProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
   kind: "greenhouse_board",
+  expandRefreshToAllPages: true,
 
-  async fetchPage(config) {
+  async fetchPage(config, paginationState) {
+    const resolved = resolveBoardSliceStart(paginationState);
+    if (resolved.status === "done") {
+      return {
+        jobs: [],
+        nextState: { completed: true },
+        exhausted: true,
+      };
+    }
+
     const token = encodeURIComponent(config.boardToken);
     const url = `https://boards-api.greenhouse.io/v1/boards/${token}/jobs?content=true`;
     const res = await fetch(url, {
@@ -40,7 +54,12 @@ export const greenhouseProvider: JobProvider<AtsBoardConfig, never> = {
       ? body.jobs.filter((j) => j.title.toLowerCase().includes(filter))
       : body.jobs;
 
-    const jobs = filtered.map((j) => {
+    const slice = filtered.slice(
+      resolved.offset,
+      resolved.offset + JOB_BOARD_SLICE_SIZE,
+    );
+
+    const jobs = slice.map((j) => {
       const snippet = j.content ? stripHtml(j.content) : null;
       return {
         externalId: `greenhouse:${config.boardToken}:${j.id}`,
@@ -57,6 +76,12 @@ export const greenhouseProvider: JobProvider<AtsBoardConfig, never> = {
       };
     });
 
-    return { jobs, nextState: null, exhausted: true };
+    const nextOffset = resolved.offset + slice.length;
+    const exhausted = nextOffset >= filtered.length;
+    const nextState: BoardSliceState = exhausted
+      ? { completed: true }
+      : { offset: nextOffset };
+
+    return { jobs, nextState, exhausted };
   },
 };
