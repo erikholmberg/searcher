@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import type { JobProvider } from "@/lib/jobs/types";
+import { publicJobExternalId } from "@/lib/jobs/seed-listing";
 import {
   buildGenericJobExcerpt,
   extractGenericPageSignals,
@@ -40,15 +40,11 @@ export const publicJobPostingProvider: JobProvider<
       [sig.title, sig.description, excerpt].filter(Boolean).join(" "),
     );
     const snippet = excerpt.slice(0, 4000);
-    const idHash = createHash("sha256")
-      .update(finalUrl)
-      .digest("hex")
-      .slice(0, 40);
 
     return {
       jobs: [
         {
-          externalId: `public_job:${idHash}`,
+          externalId: publicJobExternalId(finalUrl),
           source: "public_job",
           title: title.slice(0, 500),
           company: company.slice(0, 200),

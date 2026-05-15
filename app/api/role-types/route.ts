@@ -3,6 +3,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { jsonError, unauthorized, zodError } from "@/lib/http";
 import { RoleTypeCreate } from "@/lib/schemas";
+import {
+  attachSeedListingToRoleType,
+  pickSeedSourceId,
+} from "@/lib/jobs/seed-listing";
 
 export const runtime = "nodejs";
 
@@ -98,7 +102,7 @@ export async function POST(req: Request) {
 
   const parsed = RoleTypeCreate.safeParse(body);
   if (!parsed.success) return zodError(parsed.error);
-  const { name, intent, sortOrder, sources } = parsed.data;
+  const { name, intent, sortOrder, sources, seedListing } = parsed.data;
 
   const roleType = await prisma.roleType.create({
     data: {
@@ -115,6 +119,22 @@ export async function POST(req: Request) {
     },
     include: { sources: true },
   });
+
+  if (seedListing) {
+    const seed = {
+      externalId: seedListing.externalId,
+      source: seedListing.source,
+      title: seedListing.title,
+      company: seedListing.company,
+      url: seedListing.url,
+      descriptionSnippet: seedListing.descriptionSnippet ?? null,
+      postedAt: seedListing.postedAt ?? null,
+      locationDisplay: seedListing.locationDisplay ?? null,
+      workMode: seedListing.workMode,
+    };
+    const sourceId = pickSeedSourceId(roleType.sources, seed);
+    await attachSeedListingToRoleType(roleType.id, seed, { sourceId });
+  }
 
   return NextResponse.json({ roleType }, { status: 201 });
 }

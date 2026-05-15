@@ -66,6 +66,22 @@ export const SourceInput = z.discriminatedUnion("kind", [
 ]);
 export type SourceInput = z.infer<typeof SourceInput>;
 
+const WorkModeSchema = z.enum(["remote", "hybrid", "onsite", "unknown"]);
+
+/** Normalized listing from suggest-from-URL; attached to the role on create. */
+export const SeedListingInput = z.object({
+  externalId: z.string().min(1).max(200),
+  source: z.string().min(1).max(100),
+  title: z.string().min(1).max(500),
+  company: z.string().min(1).max(200),
+  url: httpsJobPageUrl,
+  descriptionSnippet: z.string().max(10000).optional().nullable(),
+  postedAt: z.coerce.date().optional().nullable(),
+  locationDisplay: z.string().max(500).optional().nullable(),
+  workMode: WorkModeSchema,
+});
+export type SeedListingInput = z.infer<typeof SeedListingInput>;
+
 // --- Role type bodies ------------------------------------------------------
 
 export const RoleTypeCreate = z.object({
@@ -73,6 +89,8 @@ export const RoleTypeCreate = z.object({
   intent: z.string().max(2000).optional().nullable(),
   sortOrder: z.number().int().optional(),
   sources: z.array(SourceInput).default([]),
+  /** Inspiration job from “from job URL”; upserted and linked after create. */
+  seedListing: SeedListingInput.optional(),
 });
 export type RoleTypeCreate = z.infer<typeof RoleTypeCreate>;
 

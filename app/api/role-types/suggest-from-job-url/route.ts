@@ -5,6 +5,10 @@ import { auth } from "@/auth";
 import { jsonError, unauthorized, zodError } from "@/lib/http";
 import { SuggestFromUrlBody } from "@/lib/schemas";
 import { loadJobPageForSuggest } from "@/lib/jobs/suggest-job-page";
+import {
+  seedListingFromGeneric,
+  seedListingFromStructured,
+} from "@/lib/jobs/seed-listing";
 import { assertAiConfigured, DEFAULT_FAST_MODEL, model } from "@/lib/ai";
 import type { SourceDraft } from "@/components/source-form";
 
@@ -230,27 +234,30 @@ export async function POST(req: Request) {
     }
   }
 
-  const postingDto =
+  const seedListing =
     page.kind === "structured"
-      ? {
-          title: page.posting.title,
-          company: page.posting.company,
-          url: page.posting.url,
-          snippet: page.posting.snippet,
-          locationDisplay: page.posting.locationDisplay,
-          workMode: page.posting.workMode,
-        }
-      : {
+      ? seedListingFromStructured(page.posting)
+      : seedListingFromGeneric({
           title: page.title,
           company: page.company,
           url: page.finalUrl,
-          snippet: page.excerpt.slice(0, 4000),
+          snippet: page.excerpt.slice(0, 4000) || null,
           locationDisplay: null,
           workMode: page.workMode,
-        };
+        });
+
+  const postingDto = {
+    title: seedListing.title,
+    company: seedListing.company,
+    url: seedListing.url,
+    snippet: seedListing.descriptionSnippet,
+    locationDisplay: seedListing.locationDisplay,
+    workMode: seedListing.workMode,
+  };
 
   return NextResponse.json({
     posting: postingDto,
+    seedListing,
     proposal: {
       name: aiResult.object.name,
       intent: aiResult.object.intent,

@@ -20,6 +20,18 @@ import { SourceFormFields, SourceDraft, sourceDraftToInput } from "@/components/
 import { api } from "@/lib/api-client";
 import { Plus, Sparkles } from "lucide-react";
 
+type SeedListing = {
+  externalId: string;
+  source: string;
+  title: string;
+  company: string;
+  url: string;
+  descriptionSnippet: string | null;
+  postedAt: string | null;
+  locationDisplay: string | null;
+  workMode: "remote" | "hybrid" | "onsite" | "unknown";
+};
+
 type Suggestion = {
   posting: {
     title: string;
@@ -29,6 +41,7 @@ type Suggestion = {
     locationDisplay: string | null;
     workMode: "remote" | "hybrid" | "onsite" | "unknown";
   };
+  seedListing: SeedListing;
   proposal: {
     name: string;
     intent: string;
@@ -94,7 +107,18 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   async function handleCreate() {
-    if (!name.trim()) {
+    const useProposalFields = suggestion != null && tab === "url";
+    const resolvedName = (
+      useProposalFields ? suggestion.proposal.name : name
+    ).trim();
+    const resolvedIntent = (
+      useProposalFields ? suggestion.proposal.intent : intent
+    ).trim();
+    const resolvedSources = (
+      useProposalFields ? suggestion.proposal.sources : sources
+    ).map(sourceDraftToInput);
+
+    if (!resolvedName) {
       toast.error("Name is required");
       return;
     }
@@ -103,12 +127,17 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
       await api("/api/role-types", {
         method: "POST",
         body: JSON.stringify({
-          name: name.trim(),
-          intent: intent.trim() || undefined,
-          sources: sources.map(sourceDraftToInput),
+          name: resolvedName,
+          intent: resolvedIntent || undefined,
+          sources: resolvedSources,
+          seedListing: suggestion?.seedListing ?? undefined,
         }),
       });
-      toast.success(`Created "${name.trim()}"`);
+      toast.success(
+        suggestion?.seedListing
+          ? `Created "${resolvedName}" with the inspiration job`
+          : `Created "${resolvedName}"`,
+      );
       setOpen(false);
       reset();
       onCreated();
@@ -269,14 +298,29 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
                     {suggestion.proposal.sources.length}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={fillFromSuggestion}
-                >
-                  Use proposal (edit on Manual tab)
-                </Button>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCreate}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Creating…" : "Create role"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={fillFromSuggestion}
+                    disabled={submitting}
+                  >
+                    Edit on Manual tab
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Creates the role type, attaches this job listing, and adds the
+                  proposed sources.
+                </p>
               </div>
             )}
           </TabsContent>
@@ -293,9 +337,11 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
           >
             Cancel
           </Button>
-          <Button type="button" onClick={handleCreate} disabled={submitting}>
-            {submitting ? "Creating…" : "Create"}
-          </Button>
+          {!(suggestion && tab === "url") && (
+            <Button type="button" onClick={handleCreate} disabled={submitting}>
+              {submitting ? "Creating…" : "Create"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
