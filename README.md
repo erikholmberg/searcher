@@ -44,6 +44,8 @@ Structured ATS URLs (Greenhouse, Lever, Playlist careers pages that embed Greenh
    npm install
    ```
 
+   UI primitives live in-repo under `components/ui`. Add more with `npx shadcn@latest add <component>`.
+
 2. **Environment**
 
    ```bash
