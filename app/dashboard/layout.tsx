@@ -3,6 +3,8 @@ import Link from "next/link";
 import { authSafe } from "@/auth";
 import { AccountMenu } from "@/components/account-menu";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {

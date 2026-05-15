@@ -4,6 +4,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { GitHubIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const session = await authSafe();
 

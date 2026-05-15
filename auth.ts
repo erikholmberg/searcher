@@ -48,14 +48,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
+function isNextDynamicServerUsage(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "digest" in err &&
+    (err as { digest?: string }).digest === "DYNAMIC_SERVER_USAGE"
+  );
+}
+
 /**
- * Like `auth()`, but never throws: misconfigured env or DB errors surface as `null`
- * so public routes can still render (sign-in / OAuth will still need a working setup).
+ * Like `auth()`, but never throws for real failures: misconfigured env or DB errors
+ * surface as `null` so public routes can still render (OAuth still needs a working setup).
+ * Next.js “static vs dynamic” signals are rethrown so the framework can opt into dynamic rendering.
  */
 export async function authSafe(): Promise<Session | null> {
   try {
     return await auth();
   } catch (err) {
+    if (isNextDynamicServerUsage(err)) throw err;
     console.error("[auth] session lookup failed:", err);
     return null;
   }
