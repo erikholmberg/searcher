@@ -124,6 +124,8 @@ enum SourceKind {
   greenhouse_board
   lever_board
   ashby_board
+  /// Re-fetch one public https job posting page (HTML extract; same SSRF rules as suggest-from-URL).
+  public_job_posting
 }
 
 model RoleTypeSource {

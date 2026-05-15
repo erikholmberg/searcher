@@ -23,6 +23,12 @@ import { Plus, Trash2 } from "lucide-react";
 
 function sourceToDraft(s: RoleTypeSourceDto): SourceDraft {
   const cfg = s.config as Record<string, unknown> | undefined;
+  if (s.kind === "public_job_posting") {
+    return {
+      kind: s.kind,
+      postingUrl: (cfg?.url as string) ?? "",
+    };
+  }
   if (s.kind.endsWith("_board")) {
     return {
       kind: s.kind,

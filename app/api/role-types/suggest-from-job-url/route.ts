@@ -218,6 +218,18 @@ export async function POST(req: Request) {
     );
   }
 
+  if (page.kind === "generic") {
+    const postingUrl = page.finalUrl;
+    const already = sources.some(
+      (s) =>
+        s.kind === "public_job_posting" &&
+        (s.postingUrl ?? "").trim() === postingUrl,
+    );
+    if (!already) {
+      sources = [{ kind: "public_job_posting", postingUrl }, ...sources];
+    }
+  }
+
   const postingDto =
     page.kind === "structured"
       ? {

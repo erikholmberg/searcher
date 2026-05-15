@@ -226,7 +226,10 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
               <p className="text-muted-foreground text-xs">
                 Paste a public https job URL. Known boards (Greenhouse, Lever,
                 Playlist careers) use structured data; other sites use extracted
-                page text. Private networks and non-HTML responses are blocked.
+                page text. For generic pages, the proposal includes a{" "}
+                <strong>Public job page</strong> source so refresh keeps that
+                posting in sync. Private networks and non-HTML responses are
+                blocked.
               </p>
             </div>
             <Button

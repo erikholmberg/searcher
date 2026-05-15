@@ -2,9 +2,20 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { jsonError, notFound, unauthorized, zodError } from "@/lib/http";
-import { AggregatorQueryConfig, AtsBoardConfig, SourceUpdate } from "@/lib/schemas";
+import {
+  AggregatorQueryConfig,
+  AtsBoardConfig,
+  PublicJobPostingConfig,
+  SourceUpdate,
+} from "@/lib/schemas";
 
 export const runtime = "nodejs";
+
+function configSchemaForKind(kind: string) {
+  if (kind === "public_job_posting") return PublicJobPostingConfig;
+  if (kind.endsWith("_board")) return AtsBoardConfig;
+  return AggregatorQueryConfig;
+}
 
 async function loadOwnedSource(
   roleTypeId: string,
@@ -44,10 +55,6 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return false;
 }
 
-function isAtsKind(kind: string) {
-  return kind.endsWith("_board");
-}
-
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; sourceId: string }> },
@@ -69,9 +76,9 @@ export async function PATCH(
   const parsed = SourceUpdate.safeParse(body);
   if (!parsed.success) return zodError(parsed.error);
 
-  const configValidation = isAtsKind(existing.kind)
-    ? AtsBoardConfig.safeParse(parsed.data.config)
-    : AggregatorQueryConfig.safeParse(parsed.data.config);
+  const configValidation = configSchemaForKind(existing.kind).safeParse(
+    parsed.data.config,
+  );
   if (!configValidation.success) {
     return zodError(configValidation.error);
   }

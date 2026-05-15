@@ -9,7 +9,8 @@ export type SourceKindString =
   | "remotive_query"
   | "greenhouse_board"
   | "lever_board"
-  | "ashby_board";
+  | "ashby_board"
+  | "public_job_posting";
 
 export interface JobListingDto {
   id: string;
@@ -59,4 +60,9 @@ export const SOURCE_KIND_OPTIONS: { value: SourceKindString; label: string; fami
     { value: "greenhouse_board", label: "Greenhouse board", family: "ats" },
     { value: "lever_board", label: "Lever board", family: "ats" },
     { value: "ashby_board", label: "Ashby board", family: "ats" },
+    {
+      value: "public_job_posting",
+      label: "Public job page (https HTML)",
+      family: "aggregator",
+    },
   ];

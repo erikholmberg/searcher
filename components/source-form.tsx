@@ -24,6 +24,8 @@ export interface SourceDraft {
   // ATS
   boardToken?: string;
   extraKeywords?: string;
+  // public_job_posting
+  postingUrl?: string;
 }
 
 interface Props {
@@ -35,6 +37,7 @@ interface Props {
 
 export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
   const isAts = value.kind.endsWith("_board");
+  const isPublicPosting = value.kind === "public_job_posting";
   const id = (field: string) => `source-${index}-${field}`;
 
   return (
@@ -60,9 +63,23 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
         <Label htmlFor={id("kind")}>Provider</Label>
         <Select
           value={value.kind}
-          onValueChange={(v) =>
-            v && onChange({ ...value, kind: v as SourceKindString })
-          }
+          onValueChange={(v) => {
+            if (!v) return;
+            const k = v as SourceKindString;
+            if (k === "public_job_posting") {
+              onChange({ kind: k, postingUrl: "" });
+            } else if (k.endsWith("_board")) {
+              onChange({ kind: k, boardToken: "", extraKeywords: "" });
+            } else {
+              onChange({
+                kind: k,
+                keywords: "",
+                location: "",
+                country: "",
+                remoteOnly: false,
+              });
+            }
+          }}
         >
           <SelectTrigger id={id("kind")} className="w-full min-w-0">
             <SelectValue placeholder="Choose provider" />
@@ -77,7 +94,21 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
         </Select>
       </div>
 
-      {isAts ? (
+      {isPublicPosting ? (
+        <div className="space-y-1.5">
+          <Label htmlFor={id("postingUrl")}>Job posting URL</Label>
+          <Input
+            id={id("postingUrl")}
+            placeholder="https://… (public https job page)"
+            value={value.postingUrl ?? ""}
+            onChange={(e) => onChange({ ...value, postingUrl: e.target.value })}
+          />
+          <p className="text-muted-foreground text-xs">
+            Same rules as “Suggest from job URL”: https only, server-side fetch
+            with SSRF checks. Refresh re-reads the page into this bucket.
+          </p>
+        </div>
+      ) : isAts ? (
         <>
           <div className="space-y-1.5">
             <Label htmlFor={id("boardToken")}>Board token / site slug</Label>
@@ -160,6 +191,14 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
 
 export function sourceDraftToInput(draft: SourceDraft) {
   const isAts = draft.kind.endsWith("_board");
+  if (draft.kind === "public_job_posting") {
+    return {
+      kind: draft.kind,
+      config: {
+        url: (draft.postingUrl ?? "").trim(),
+      },
+    };
+  }
   if (isAts) {
     return {
       kind: draft.kind,

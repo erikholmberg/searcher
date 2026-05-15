@@ -23,6 +23,20 @@ export const AtsBoardConfig = z.object({
 });
 export type AtsBoardConfig = z.infer<typeof AtsBoardConfig>;
 
+const httpsJobPageUrl = z
+  .string()
+  .url()
+  .max(2048)
+  .refine((u) => u.startsWith("https://"), {
+    message: "Only https URLs are supported",
+  });
+
+export const PublicJobPostingConfig = z.object({
+  /** Public job posting page (same fetch rules as “Suggest from job URL”). */
+  url: httpsJobPageUrl,
+});
+export type PublicJobPostingConfig = z.infer<typeof PublicJobPostingConfig>;
+
 export const SourceKind = z.enum([
   "adzuna_query",
   "arbeitnow_query",
@@ -30,6 +44,7 @@ export const SourceKind = z.enum([
   "greenhouse_board",
   "lever_board",
   "ashby_board",
+  "public_job_posting",
 ]);
 export type SourceKind = z.infer<typeof SourceKind>;
 
@@ -44,6 +59,10 @@ export const SourceInput = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("greenhouse_board"), config: AtsBoardConfig }),
   z.object({ kind: z.literal("lever_board"), config: AtsBoardConfig }),
   z.object({ kind: z.literal("ashby_board"), config: AtsBoardConfig }),
+  z.object({
+    kind: z.literal("public_job_posting"),
+    config: PublicJobPostingConfig,
+  }),
 ]);
 export type SourceInput = z.infer<typeof SourceInput>;
 
@@ -65,7 +84,11 @@ export const RoleTypeUpdate = z.object({
 export type RoleTypeUpdate = z.infer<typeof RoleTypeUpdate>;
 
 export const SourceUpdate = z.object({
-  config: z.union([AggregatorQueryConfig, AtsBoardConfig]),
+  config: z.union([
+    AggregatorQueryConfig,
+    AtsBoardConfig,
+    PublicJobPostingConfig,
+  ]),
 });
 export type SourceUpdate = z.infer<typeof SourceUpdate>;
 
