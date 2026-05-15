@@ -12,16 +12,74 @@ import { EditRoleTypeDialog } from "@/components/edit-role-type-dialog";
 import { SourcesSheet } from "@/components/sources-sheet";
 import { api } from "@/lib/api-client";
 import { RoleTypeDto, RoleTypeJobDto } from "@/lib/types";
-import { Loader2, RefreshCw, Search, Settings2, Trash2 } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Search, Settings2, Trash2 } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { compareRoleTypeJobs } from "@/lib/compare-role-type-job";
+import {
+  dragPayloadMayContainUrl,
+  extractHttpsJobUrl,
+} from "@/lib/url-from-drop";
 
 export function Dashboard() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const viewAll = searchParams.get("view") === "all";
   const [roleTypes, setRoleTypes] = React.useState<RoleTypeDto[] | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState<string | null>(null);
   const [findingMore, setFindingMore] = React.useState<string | null>(null);
   const [showHidden, setShowHidden] = React.useState(false);
+  const [createDialog, setCreateDialog] = React.useState<{
+    open: boolean;
+    startWithUrl: string | null;
+  }>({ open: false, startWithUrl: null });
+  const [isDragOver, setIsDragOver] = React.useState(false);
+  const dragDepthRef = React.useRef(0);
+
+  function openNewSearch(startWithUrl: string | null = null) {
+    setCreateDialog({ open: true, startWithUrl });
+  }
+
+  function handleCreateDialogOpenChange(open: boolean) {
+    setCreateDialog((prev) => ({
+      open,
+      startWithUrl: open ? prev.startWithUrl : null,
+    }));
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    if (!dragPayloadMayContainUrl(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDragOver(false);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    if (!dragPayloadMayContainUrl(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDragOver(false);
+
+    const url = extractHttpsJobUrl(e.dataTransfer);
+    if (!url) {
+      toast.error("Drop a public https job posting URL");
+      return;
+    }
+    openNewSearch(url);
+  }
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -33,7 +91,7 @@ export function Dashboard() {
         return res.roleTypes[0]?.id ?? null;
       });
     } catch (err) {
-      toast.error((err as Error).message || "Failed to load role types");
+      toast.error((err as Error).message || "Failed to load searches");
     } finally {
       setLoading(false);
     }
@@ -49,6 +107,29 @@ export function Dashboard() {
   const visibleJobs = selected?.jobs.filter((j) => !j.hidden) ?? [];
   const hiddenJobs = selected?.jobs.filter((j) => j.hidden) ?? [];
 
+  const allJobsFlat = React.useMemo(() => {
+    if (!roleTypes) return [];
+    const rows: Array<{
+      job: RoleTypeJobDto;
+      roleTypeId: string;
+      roleTypeName: string;
+    }> = [];
+    for (const rt of roleTypes) {
+      for (const j of rt.jobs) {
+        rows.push({
+          job: j,
+          roleTypeId: rt.id,
+          roleTypeName: rt.name,
+        });
+      }
+    }
+    rows.sort((a, b) => compareRoleTypeJobs(a.job, b.job));
+    return rows;
+  }, [roleTypes]);
+
+  const allVisibleJobs = allJobsFlat.filter(({ job }) => !job.hidden);
+  const allHiddenJobs = allJobsFlat.filter(({ job }) => job.hidden);
+
   function updateLocalJob(roleTypeId: string, next: RoleTypeJobDto) {
     setRoleTypes((all) =>
       all
@@ -56,9 +137,11 @@ export function Dashboard() {
             rt.id === roleTypeId
               ? {
                   ...rt,
-                  jobs: rt.jobs.map((j) =>
-                    j.listing.id === next.listing.id ? next : j,
-                  ),
+                  jobs: rt.jobs
+                    .map((j) =>
+                      j.listing.id === next.listing.id ? next : j,
+                    )
+                    .sort(compareRoleTypeJobs),
                 }
               : rt,
           )
@@ -120,7 +203,7 @@ export function Dashboard() {
   async function deleteRoleType(roleTypeId: string) {
     if (
       !confirm(
-        "Delete this role type? Its job listings stay in the database, but the bucket and its sources are removed.",
+        "Delete this search? Its job listings stay in the database, but the search and its sources are removed.",
       )
     )
       return;
@@ -134,11 +217,31 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-1 min-h-[calc(100vh-3.25rem)]">
+    <>
+      <div
+        className="relative flex flex-1 min-h-[calc(100vh-3.25rem)]"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDragOver && (
+          <div
+            className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 border-2 border-dashed border-primary m-2 rounded-lg"
+            aria-hidden
+          >
+            <p className="text-sm font-medium text-center px-6">
+              Drop job posting URL to create a search
+            </p>
+          </div>
+        )}
       <aside className="w-64 shrink-0 border-r border-border flex flex-col">
         <div className="p-3 border-b border-border flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">Role types</span>
-          <NewRoleTypeDialog onCreated={load} />
+          <span className="text-sm font-medium">Searches</span>
+          <Button size="sm" onClick={() => openNewSearch()}>
+            <Plus className="mr-1 size-4" />
+            New search
+          </Button>
         </div>
         <ScrollArea className="flex-1">
           <nav className="p-2 space-y-1">
@@ -150,7 +253,7 @@ export function Dashboard() {
             )}
             {!loading && roleTypes && roleTypes.length === 0 && (
               <p className="text-xs text-muted-foreground px-2 py-4">
-                No role types yet.
+                No searches yet.
               </p>
             )}
             {roleTypes?.map((rt) => {
@@ -158,10 +261,14 @@ export function Dashboard() {
               return (
                 <button
                   key={rt.id}
-                  onClick={() => setSelectedId(rt.id)}
+                  type="button"
+                  onClick={() => {
+                    router.replace("/dashboard");
+                    setSelectedId(rt.id);
+                  }}
                   className={cn(
                     "w-full text-left text-sm px-2 py-1.5 rounded-md flex items-center justify-between gap-2 hover:bg-muted",
-                    selectedId === rt.id && "bg-muted",
+                    !viewAll && selectedId === rt.id && "bg-muted",
                   )}
                 >
                   <span className="truncate">{rt.name}</span>
@@ -176,7 +283,7 @@ export function Dashboard() {
       </aside>
 
       <main className="flex-1 min-w-0">
-        {loading && !selected && (
+        {viewAll && loading && (
           <div className="p-6 space-y-3">
             <Skeleton className="h-8 w-1/3" />
             <Skeleton className="h-20 w-full" />
@@ -184,18 +291,98 @@ export function Dashboard() {
           </div>
         )}
 
-        {!loading && !selected && (
-          <div className="p-10 text-center max-w-md mx-auto space-y-3">
-            <h2 className="text-lg font-medium">No role type selected</h2>
-            <p className="text-muted-foreground text-sm">
-              Create a role type to start aggregating jobs. You can do it
-              manually or paste a job posting URL and let AI propose one.
-            </p>
-            <NewRoleTypeDialog onCreated={load} />
+        {viewAll && !loading && (
+          <div className="flex flex-col h-full">
+            <div className="border-b border-border p-4">
+              <h2 className="text-xl font-semibold tracking-tight">All jobs</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Every job across your searches. Favorites first, then most
+                recently added.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {allVisibleJobs.length} visible
+                {allHiddenJobs.length > 0
+                  ? ` · ${allHiddenJobs.length} hidden`
+                  : ""}
+              </p>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-3 w-full min-w-0">
+                {allJobsFlat.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No jobs yet. Add a search and run <strong>Refresh</strong>,
+                    or open <strong>New search</strong>.
+                  </p>
+                )}
+                {allVisibleJobs.map(({ job, roleTypeId, roleTypeName }) => (
+                  <JobRow
+                    key={`${roleTypeId}-${job.id}`}
+                    roleTypeId={roleTypeId}
+                    job={job}
+                    searchLabel={`Search: ${roleTypeName}`}
+                    onChanged={(next) => updateLocalJob(roleTypeId, next)}
+                    onRemoved={(listingId) =>
+                      removeLocalJob(roleTypeId, listingId)
+                    }
+                  />
+                ))}
+
+                {allHiddenJobs.length > 0 && (
+                  <div className="pt-4 border-t border-border space-y-3">
+                    <button
+                      type="button"
+                      className="text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowHidden((s) => !s)}
+                    >
+                      {showHidden ? "Hide" : "Show"} {allHiddenJobs.length}{" "}
+                      hidden job{allHiddenJobs.length === 1 ? "" : "s"}
+                    </button>
+                    {showHidden &&
+                      allHiddenJobs.map(({ job, roleTypeId, roleTypeName }) => (
+                        <JobRow
+                          key={`${roleTypeId}-${job.id}-hidden`}
+                          roleTypeId={roleTypeId}
+                          job={job}
+                          searchLabel={`Search: ${roleTypeName}`}
+                          onChanged={(next) =>
+                            updateLocalJob(roleTypeId, next)
+                          }
+                          onRemoved={(listingId) =>
+                            removeLocalJob(roleTypeId, listingId)
+                          }
+                          showHiddenControls
+                        />
+                      ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           </div>
         )}
 
-        {selected && (
+        {!viewAll && loading && !selected && (
+          <div className="p-6 space-y-3">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        )}
+
+        {!viewAll && !loading && !selected && (
+          <div className="p-10 text-center max-w-md mx-auto space-y-3">
+            <h2 className="text-lg font-medium">No search selected</h2>
+            <p className="text-muted-foreground text-sm">
+              Create a search to start aggregating jobs manually, paste a job
+              posting URL, or drag a job URL anywhere on this page.
+            </p>
+            <Button onClick={() => openNewSearch()}>
+              <Plus className="mr-1 size-4" />
+              New search
+            </Button>
+          </div>
+        )}
+
+        {selected && !viewAll && (
           <div className="flex flex-col h-full">
             <div className="border-b border-border p-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -270,8 +457,8 @@ export function Dashboard() {
                   size="sm"
                   variant="ghost"
                   onClick={() => deleteRoleType(selected.id)}
-                  aria-label="Delete role type"
-                  title="Delete role type"
+                  aria-label="Delete search"
+                  title="Delete search"
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -282,7 +469,7 @@ export function Dashboard() {
               <div className="p-4 space-y-3 w-full min-w-0">
                 {selected.sources.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No sources on this role type yet. Click{" "}
+                    No sources on this search yet. Click{" "}
                     <strong>Sources</strong> to add at least one, then{" "}
                     <strong>Refresh</strong>.
                   </p>
@@ -334,6 +521,14 @@ export function Dashboard() {
           </div>
         )}
       </main>
-    </div>
+      </div>
+
+      <NewRoleTypeDialog
+        open={createDialog.open}
+        onOpenChange={handleCreateDialogOpenChange}
+        startWithUrl={createDialog.startWithUrl}
+        onCreated={load}
+      />
+    </>
   );
 }

@@ -22,7 +22,7 @@ export default async function SignInPage({
         <CardHeader>
           <CardTitle>Sign in to Searcher</CardTitle>
           <CardDescription>
-            Signing in stores your role types, favorites, and hidden jobs
+            Signing in stores your searches, favorites, and hidden jobs
             against your GitHub account.
           </CardDescription>
         </CardHeader>

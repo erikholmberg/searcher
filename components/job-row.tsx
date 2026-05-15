@@ -18,6 +18,8 @@ interface Props {
   /** Called after the job is removed from this role type (listing id). */
   onRemoved: (listingId: string) => void;
   showHiddenControls?: boolean;
+  /** When set (e.g. All jobs view), shown as muted context under the title. */
+  searchLabel?: string;
 }
 
 export function JobRow({
@@ -26,6 +28,7 @@ export function JobRow({
   onChanged,
   onRemoved,
   showHiddenControls = false,
+  searchLabel,
 }: Props) {
   const [busy, setBusy] = React.useState(false);
 
@@ -75,6 +78,7 @@ export function JobRow({
   const postedLabel = job.listing.postedAt
     ? new Date(job.listing.postedAt).toLocaleDateString()
     : null;
+  const addedLabel = new Date(job.addedAt).toLocaleDateString();
 
   return (
     <Card className={cn("p-3", job.favorite && "ring-1 ring-amber-400/60")}>
@@ -91,12 +95,16 @@ export function JobRow({
             </a>
             <ExternalLink className="size-3 text-muted-foreground shrink-0" />
           </div>
+          {searchLabel ? (
+            <p className="text-xs text-muted-foreground mt-0.5">{searchLabel}</p>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {job.listing.company}
             {job.listing.locationDisplay
               ? ` · ${job.listing.locationDisplay}`
               : " · Location not listed"}
-            {postedLabel ? ` · ${postedLabel}` : ""}
+            {postedLabel ? ` · Posted ${postedLabel}` : ""}
+            {` · Added ${addedLabel}`}
           </p>
           <div className="mt-2 flex items-center gap-2 flex-wrap">
             <WorkModeBadge mode={job.listing.workMode} />

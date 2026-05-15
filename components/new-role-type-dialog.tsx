@@ -9,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SourceFormFields, SourceDraft, sourceDraftToInput } from "@/components/source-form";
 import { api } from "@/lib/api-client";
+import { SOURCE_KIND_OPTIONS } from "@/lib/types";
 import { Plus, Sparkles } from "lucide-react";
+
+function describeProposalSource(sources: SourceDraft[]): string {
+  const s = sources[0];
+  if (!s) return "—";
+  return SOURCE_KIND_OPTIONS.find((o) => o.value === s.kind)?.label ?? s.kind;
+}
 
 type SeedListing = {
   externalId: string;
@@ -49,22 +55,31 @@ type Suggestion = {
   };
 };
 
-export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
-  const [open, setOpen] = React.useState(false);
-  const [tab, setTab] = React.useState<"manual" | "url">("manual");
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** When set on open, switches to the URL tab and runs suggest once. */
+  startWithUrl?: string | null;
+  onCreated: () => void;
+};
 
-  // Manual state
+export function NewRoleTypeDialog({
+  open,
+  onOpenChange,
+  startWithUrl,
+  onCreated,
+}: Props) {
+  const [tab, setTab] = React.useState<"manual" | "url">("manual");
   const [name, setName] = React.useState("");
   const [intent, setIntent] = React.useState("");
   const [sources, setSources] = React.useState<SourceDraft[]>([
     { kind: "arbeitnow_query", keywords: "" },
   ]);
   const [submitting, setSubmitting] = React.useState(false);
-
-  // From-URL state
   const [url, setUrl] = React.useState("");
   const [suggestLoading, setSuggestLoading] = React.useState(false);
   const [suggestion, setSuggestion] = React.useState<Suggestion | null>(null);
+  const lastAutoSuggestedRef = React.useRef<string | null>(null);
 
   function reset() {
     setName("");
@@ -73,7 +88,44 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
     setUrl("");
     setSuggestion(null);
     setTab("manual");
+    lastAutoSuggestedRef.current = null;
   }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) reset();
+    onOpenChange(next);
+  }
+
+  async function runSuggest(urlToSuggest: string) {
+    const trimmed = urlToSuggest.trim();
+    if (!trimmed) return;
+    setSuggestLoading(true);
+    setSuggestion(null);
+    try {
+      const res = await api<Suggestion>(
+        "/api/role-types/suggest-from-job-url",
+        {
+          method: "POST",
+          body: JSON.stringify({ url: trimmed }),
+        },
+      );
+      setSuggestion(res);
+    } catch (err) {
+      toast.error((err as Error).message || "Failed to read URL");
+    } finally {
+      setSuggestLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (!open || !startWithUrl?.trim()) return;
+    const trimmed = startWithUrl.trim();
+    if (lastAutoSuggestedRef.current === trimmed) return;
+    lastAutoSuggestedRef.current = trimmed;
+    setTab("url");
+    setUrl(trimmed);
+    void runSuggest(trimmed);
+  }, [open, startWithUrl]);
 
   function fillFromSuggestion() {
     if (!suggestion) return;
@@ -88,22 +140,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   async function handleSuggest() {
-    if (!url.trim()) return;
-    setSuggestLoading(true);
-    try {
-      const res = await api<Suggestion>(
-        "/api/role-types/suggest-from-job-url",
-        {
-          method: "POST",
-          body: JSON.stringify({ url: url.trim() }),
-        },
-      );
-      setSuggestion(res);
-    } catch (err) {
-      toast.error((err as Error).message || "Failed to read URL");
-    } finally {
-      setSuggestLoading(false);
-    }
+    await runSuggest(url);
   }
 
   async function handleCreate() {
@@ -138,8 +175,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
           ? `Created "${resolvedName}" with the inspiration job`
           : `Created "${resolvedName}"`,
       );
-      setOpen(false);
-      reset();
+      handleOpenChange(false);
       onCreated();
     } catch (err) {
       toast.error((err as Error).message || "Failed to create");
@@ -149,21 +185,13 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger
-        render={
-          <Button size="sm">
-            <Plus className="mr-1 size-4" />
-            New role type
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>New role type</DialogTitle>
+          <DialogTitle>New search</DialogTitle>
           <DialogDescription>
-            A bucket of similar roles. Add sources (public APIs or career pages)
-            now, or after creating.
+            A saved search for similar roles. Add sources (public APIs or career
+            pages) now, or after creating.
           </DialogDescription>
         </DialogHeader>
 
@@ -183,7 +211,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
                 placeholder="e.g. Staff backend"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                autoFocus
+                autoFocus={open && tab === "manual" && !startWithUrl}
               />
             </div>
             <div className="space-y-1.5">
@@ -192,7 +220,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
               </Label>
               <Textarea
                 id="intent"
-                placeholder="What does 'similar' mean for this bucket? Level, stack, domain, etc."
+                placeholder="What does 'similar' mean for this search? Level, stack, domain, etc."
                 value={intent}
                 onChange={(e) => setIntent(e.target.value)}
                 rows={3}
@@ -219,7 +247,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
               </div>
               {sources.length === 0 && (
                 <p className="text-muted-foreground text-sm">
-                  No sources yet. You can add some later from the role type page.
+                  No sources yet. You can add some later from the search page.
                 </p>
               )}
               {sources.map((s, i) => (
@@ -253,12 +281,9 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
                 onChange={(e) => setUrl(e.target.value)}
               />
               <p className="text-muted-foreground text-xs">
-                Paste a public https job URL. Known boards (Greenhouse, Lever,
-                Playlist careers) use structured data; other sites use extracted
-                page text. For generic pages, the proposal includes a{" "}
-                <strong>Public job page</strong> source so refresh keeps that
-                posting in sync. Private networks and non-HTML responses are
-                blocked.
+                Paste a public https job URL, or drag one onto the dashboard.
+                Creates one source from that URL (Greenhouse/Lever board or public
+                job page). AI proposes the search name and intent only.
               </p>
             </div>
             <Button
@@ -294,8 +319,8 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
                     {suggestion.proposal.intent}
                   </p>
                   <p>
-                    <span className="font-medium">Sources:</span>{" "}
-                    {suggestion.proposal.sources.length}
+                    <span className="font-medium">Source:</span>{" "}
+                    {describeProposalSource(suggestion.proposal.sources)}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -305,7 +330,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
                     onClick={handleCreate}
                     disabled={submitting}
                   >
-                    {submitting ? "Creating…" : "Create role"}
+                    {submitting ? "Creating…" : "Create search"}
                   </Button>
                   <Button
                     type="button"
@@ -318,8 +343,8 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
                   </Button>
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  Creates the role type, attaches this job listing, and adds the
-                  proposed sources.
+                  Creates the search with that URL as its source and attaches
+                  this job listing.
                 </p>
               </div>
             )}
@@ -330,10 +355,7 @@ export function NewRoleTypeDialog({ onCreated }: { onCreated: () => void }) {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => {
-              setOpen(false);
-              reset();
-            }}
+            onClick={() => handleOpenChange(false)}
           >
             Cancel
           </Button>

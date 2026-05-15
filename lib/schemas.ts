@@ -82,7 +82,7 @@ export const SeedListingInput = z.object({
 });
 export type SeedListingInput = z.infer<typeof SeedListingInput>;
 
-// --- Role type bodies ------------------------------------------------------
+// --- Search (RoleType) bodies ----------------------------------------------
 
 export const RoleTypeCreate = z.object({
   name: z.string().min(1).max(120),

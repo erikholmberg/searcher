@@ -25,7 +25,7 @@ export async function DELETE(
       where: { id: roleTypeId, userId },
       select: { id: true },
     });
-    if (!roleType) return notFound("Role type");
+    if (!roleType) return notFound("Search");
 
     const link = await prisma.roleTypeJob.findFirst({
       where: { roleTypeId, jobListingId },

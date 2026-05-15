@@ -60,7 +60,7 @@ export function EditRoleTypeDialog({
           intent: intent.trim() ? intent.trim() : null,
         }),
       });
-      toast.success("Role type updated");
+      toast.success("Search updated");
       setOpen(false);
       onSaved();
     } catch (err) {
@@ -87,7 +87,7 @@ export function EditRoleTypeDialog({
       />
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit role type</DialogTitle>
+          <DialogTitle>Edit search</DialogTitle>
           <DialogDescription>
             Update the display name and intent. Sources are managed separately
             from the Sources button.
@@ -113,7 +113,7 @@ export function EditRoleTypeDialog({
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
               rows={4}
-              placeholder="What does 'similar' mean for this bucket?"
+              placeholder="What does 'similar' mean for this search?"
             />
           </div>
         </div>

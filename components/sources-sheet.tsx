@@ -192,7 +192,7 @@ export function SourcesSheet({
           <SheetTitle>Manage sources</SheetTitle>
           <SheetDescription>
             Each source pulls jobs from one provider. Saving here keeps existing
-            jobs; click <strong>Refresh</strong> in the role type to re-sync.
+            jobs; click <strong>Refresh</strong> on this search to re-sync.
           </SheetDescription>
         </SheetHeader>
 

@@ -82,7 +82,7 @@ enum WorkMode {
   unknown
 }
 
-// A user-defined bucket like "Staff backend" or "ML infra".
+// A user-defined search (UI: "Search") like "Staff backend" or "ML infra".
 model RoleType {
   id        String  @id @default(cuid())
   userId    String

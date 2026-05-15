@@ -12,7 +12,7 @@ export default async function Home() {
       <div className="max-w-xl text-center space-y-6">
         <h1 className="text-4xl font-semibold tracking-tight">Searcher</h1>
         <p className="text-muted-foreground text-lg">
-          Define role types, aggregate jobs from public APIs and career pages,
+          Define searches, aggregate jobs from public APIs and career pages,
           favorite the good ones, hide the rest.
         </p>
         <div className="flex justify-center">

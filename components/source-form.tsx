@@ -105,7 +105,7 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
           />
           <p className="text-muted-foreground text-xs">
             Same rules as “Suggest from job URL”: https only, server-side fetch
-            with SSRF checks. Refresh re-reads the page into this bucket.
+            with SSRF checks. Refresh re-reads the page into this search.
           </p>
         </div>
       ) : isAts ? (

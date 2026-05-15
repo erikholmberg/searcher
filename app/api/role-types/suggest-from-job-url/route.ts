@@ -5,60 +5,14 @@ import { auth } from "@/auth";
 import { jsonError, unauthorized, zodError } from "@/lib/http";
 import { SuggestFromUrlBody } from "@/lib/schemas";
 import { loadJobPageForSuggest } from "@/lib/jobs/suggest-job-page";
+import { singleSourceFromJobPage } from "@/lib/jobs/sources-from-job-page";
 import {
   seedListingFromGeneric,
   seedListingFromStructured,
 } from "@/lib/jobs/seed-listing";
 import { assertAiConfigured, DEFAULT_FAST_MODEL, model } from "@/lib/ai";
-import type { SourceDraft } from "@/components/source-form";
 
 export const runtime = "nodejs";
-
-/**
- * Flat source shape for `generateObject` JSON schema. OpenAI structured output
- * rejects `oneOf` on array items (Zod discriminated unions). It also requires
- * `required` to list every key in `properties`—no optional keys—so every field
- * is required; use empty string / false when a field does not apply to `kind`.
- */
-const ProposalSourceLaxSchema = z.object({
-  kind: z
-    .enum([
-      "arbeitnow_query",
-      "remotive_query",
-      "greenhouse_board",
-      "lever_board",
-    ])
-    .describe("Source type for this bucket."),
-  keywords: z
-    .string()
-    .max(120)
-    .describe(
-      "For arbeitnow_query and remotive_query: non-empty search keywords. For ATS kinds: use empty string \"\".",
-    ),
-  location: z
-    .string()
-    .max(80)
-    .describe(
-      "For arbeitnow_query only: location filter, or empty string \"\" if none.",
-    ),
-  remoteOnly: z
-    .boolean()
-    .describe(
-      "For arbeitnow_query only: true to prefer remote-only listings. For all other kinds: false.",
-    ),
-  boardToken: z
-    .string()
-    .max(80)
-    .describe(
-      "For greenhouse_board and lever_board: non-empty board/site token. For aggregators: empty string \"\".",
-    ),
-  extraKeywords: z
-    .string()
-    .max(120)
-    .describe(
-      "For greenhouse_board and lever_board only: extra title filter, or empty string \"\".",
-    ),
-});
 
 const ProposalSchema = z.object({
   name: z
@@ -66,54 +20,16 @@ const ProposalSchema = z.object({
     .min(1)
     .max(80)
     .describe(
-      "Short label for the role-type bucket (e.g. 'Staff backend', 'ML platform engineer').",
+      "Short label for the search (e.g. 'Staff backend', 'ML platform engineer').",
     ),
   intent: z
     .string()
     .min(1)
     .max(500)
     .describe(
-      "1-2 sentence description of what 'similar' means for this bucket: seniority, stack, domain, work style.",
+      "1-2 sentence description of what 'similar' means for this search: seniority, stack, domain, work style.",
     ),
-  sources: z.array(ProposalSourceLaxSchema).min(1).max(4),
 });
-
-function proposalSourceToDraft(raw: z.infer<typeof ProposalSourceLaxSchema>): SourceDraft {
-  const kw = raw.keywords.trim();
-  const token = raw.boardToken.trim();
-  const loc = raw.location.trim();
-  const extra = raw.extraKeywords.trim();
-
-  switch (raw.kind) {
-    case "arbeitnow_query":
-      if (!kw) throw new Error("arbeitnow_query requires non-empty keywords");
-      return {
-        kind: "arbeitnow_query",
-        keywords: kw,
-        location: loc || undefined,
-        remoteOnly: raw.remoteOnly ? true : undefined,
-      };
-    case "remotive_query":
-      if (!kw) throw new Error("remotive_query requires non-empty keywords");
-      return { kind: "remotive_query", keywords: kw };
-    case "greenhouse_board":
-      if (!token) throw new Error("greenhouse_board requires boardToken");
-      return {
-        kind: "greenhouse_board",
-        boardToken: token,
-        extraKeywords: extra || undefined,
-      };
-    case "lever_board":
-      if (!token) throw new Error("lever_board requires boardToken");
-      return {
-        kind: "lever_board",
-        boardToken: token,
-        extraKeywords: extra || undefined,
-      };
-    default:
-      throw new Error(`Unknown source kind: ${String((raw as { kind: string }).kind)}`);
-  }
-}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -141,19 +57,7 @@ export async function POST(req: Request) {
     return jsonError((err as Error).message, 503);
   }
 
-  const sourceHint =
-    page.kind === "structured"
-      ? page.posting.source === "greenhouse"
-        ? `The posting is hosted on Greenhouse for board "${page.posting.boardToken}". A "greenhouse_board" source for this token is a sensible starting point.`
-        : `The posting is hosted on Lever for site "${page.posting.boardToken}". A "lever_board" source for this site is a sensible starting point.`
-      : `This URL was read as generic HTML (not a known jobs API). Prefer arbeitnow_query and remotive_query sources grounded in the excerpt. Only propose greenhouse_board or lever_board if the excerpt or URL clearly names a verifiable board (e.g. a boards.greenhouse.io/TOKEN path or jobs.lever.co/SITE/...). Never invent board tokens.`;
-
-  const system =
-    page.kind === "structured"
-      ? "You suggest a role-type bucket so the user can find SIMILAR roles. Only propose ATS board sources for boards explicitly named in the input; do not invent boards. Keep keyword strings short and high-signal."
-      : "You suggest a role-type bucket so the user can find SIMILAR roles. The input is plain text extracted from a public web page—it may contain navigation noise; focus on the job description. Do not invent employers, locations, or ATS board identifiers. Keep keyword strings short and high-signal.";
-
-  const prompt =
+  const postingContext =
     page.kind === "structured"
       ? [
           "Posting summary (do not invent details):",
@@ -164,15 +68,6 @@ export async function POST(req: Request) {
             : "",
           `Work mode: ${page.posting.workMode}`,
           page.posting.snippet ? `Snippet: ${page.posting.snippet}` : "",
-          "",
-          sourceHint,
-          "",
-          "Propose:",
-          "- A short name for the role type bucket.",
-          "- A 1-2 sentence intent describing what 'similar' means.",
-          "- 1-4 sources to populate this bucket. Include at minimum one aggregator query and (when applicable) the inferred ATS board.",
-          "",
-          "Each source object must include every field: kind, keywords, location, remoteOnly, boardToken, extraKeywords. Use empty string \"\" and false for fields that do not apply to that source's kind.",
         ]
           .filter(Boolean)
           .join("\n")
@@ -186,23 +81,25 @@ export async function POST(req: Request) {
           "",
           "Extracted page text:",
           page.excerpt,
-          "",
-          sourceHint,
-          "",
-          "Propose:",
-          "- A short name for the role type bucket.",
-          "- A 1-2 sentence intent describing what 'similar' means.",
-          "- 1-4 sources. Include at least one aggregator query; add ATS board sources only when clearly justified above.",
-          "",
-          "Each source object must include every field: kind, keywords, location, remoteOnly, boardToken, extraKeywords. Use empty string \"\" and false for fields that do not apply to that source's kind.",
         ].join("\n");
+
+  const prompt = [
+    postingContext,
+    "",
+    "Propose only:",
+    "- A short name for the search.",
+    "- A 1-2 sentence intent describing what 'similar' means.",
+    "",
+    "Do not propose search sources or keywords—the app will attach a single source from this URL.",
+  ].join("\n");
 
   let aiResult;
   try {
     aiResult = await generateObject({
       model: model(DEFAULT_FAST_MODEL),
       schema: ProposalSchema,
-      system,
+      system:
+        "You suggest a saved job search so the user can find SIMILAR roles to the posting described. Focus on name and intent only; do not invent employers, locations, or board identifiers.",
       prompt,
     });
   } catch (err) {
@@ -212,27 +109,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let sources: SourceDraft[];
-  try {
-    sources = aiResult.object.sources.map((s) => proposalSourceToDraft(s));
-  } catch (normErr) {
-    return jsonError(
-      `AI proposal failed: invalid source fields (${(normErr as Error).message}). Try again.`,
-      502,
-    );
-  }
-
-  if (page.kind === "generic") {
-    const postingUrl = page.finalUrl;
-    const already = sources.some(
-      (s) =>
-        s.kind === "public_job_posting" &&
-        (s.postingUrl ?? "").trim() === postingUrl,
-    );
-    if (!already) {
-      sources = [{ kind: "public_job_posting", postingUrl }, ...sources];
-    }
-  }
+  const sources = singleSourceFromJobPage(page);
 
   const seedListing =
     page.kind === "structured"

@@ -19,7 +19,7 @@ const Body = z.object({
 });
 
 /**
- * Streams a short "why this might fit" paragraph for a given role type + job.
+ * Streams a short "why this might fit" paragraph for a given search + job.
  *
  * POST /api/ai/fit
  * body: { roleTypeName, roleTypeIntent?, job: { title, company, snippet?, locationDisplay?, workMode? } }
@@ -51,15 +51,15 @@ export async function POST(req: Request) {
 
   const { roleTypeName, roleTypeIntent, job } = parsed;
   const intentLine = roleTypeIntent
-    ? `The user describes that role type as: ${roleTypeIntent}`
-    : `The user has not described the role type beyond its name.`;
+    ? `The user describes that search as: ${roleTypeIntent}`
+    : `The user has not described the search beyond its name.`;
 
   const result = streamText({
     model: model(DEFAULT_FAST_MODEL),
     system:
       "You write concise, honest job-fit summaries. Be specific and avoid embellishment. Output 2-4 short sentences max. Never invent details about the employer that aren't supported by the snippet.",
     prompt: [
-      `Role type: ${roleTypeName}`,
+      `Search: ${roleTypeName}`,
       intentLine,
       "",
       `Job: ${job.title} at ${job.company}`,

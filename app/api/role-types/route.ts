@@ -7,6 +7,7 @@ import {
   attachSeedListingToRoleType,
   pickSeedSourceId,
 } from "@/lib/jobs/seed-listing";
+import { compareRoleTypeJobs } from "@/lib/compare-role-type-job";
 
 export const runtime = "nodejs";
 
@@ -66,19 +67,7 @@ export async function GET() {
           hidden: state?.hidden ?? false,
         };
       })
-      .sort((a, b) => {
-        if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
-        const aScore = a.matchScore ?? -Infinity;
-        const bScore = b.matchScore ?? -Infinity;
-        if (aScore !== bScore) return bScore - aScore;
-        const aTime = a.listing.postedAt
-          ? new Date(a.listing.postedAt).getTime()
-          : 0;
-        const bTime = b.listing.postedAt
-          ? new Date(b.listing.postedAt).getTime()
-          : 0;
-        return bTime - aTime;
-      }),
+      .sort(compareRoleTypeJobs),
   }));
 
   return NextResponse.json({ roleTypes: shaped });
