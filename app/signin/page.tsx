@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/auth";
+import { authSafe, signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GitHubIcon } from "@/components/icons";
@@ -11,7 +11,7 @@ export default async function SignInPage({
 }: {
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
-  const session = await auth();
+  const session = await authSafe();
   const params = await searchParams;
   const callbackUrl = params.callbackUrl ?? "/dashboard";
   if (session) redirect(callbackUrl);

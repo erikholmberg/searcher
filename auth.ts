@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { Session } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
@@ -46,6 +47,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+/**
+ * Like `auth()`, but never throws: misconfigured env or DB errors surface as `null`
+ * so public routes can still render (sign-in / OAuth will still need a working setup).
+ */
+export async function authSafe(): Promise<Session | null> {
+  try {
+    return await auth();
+  } catch (err) {
+    console.error("[auth] session lookup failed:", err);
+    return null;
+  }
+}
 
 // Augment Session type for `session.user.id`.
 declare module "next-auth" {

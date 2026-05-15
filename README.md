@@ -101,8 +101,12 @@ Structured ATS URLs (Greenhouse, Lever, Playlist careers pages that embed Greenh
 Typical target: **Vercel** + **Supabase Postgres**.
 
 - Set the same env vars as in `.env.example` in the Vercel project (and GitHub OAuth callback for your production domain).
+- **`AUTH_URL`** in production must be your public site origin, e.g. `https://the-searcher.vercel.app` (no trailing slash). Add the same URL’s callback in the GitHub OAuth app: `https://the-searcher.vercel.app/api/auth/callback/github`.
+- Set **`AUTH_TRUST_HOST=true`** on Vercel (see `.env.example`).
 - Use Supabase **pooled** `DATABASE_URL` and **direct** `DIRECT_URL` as described in `.env.example`.
 - Run migrations against production (`db:migrate` with production `DIRECT_URL`) or `db push` for early setups.
+
+If the home page still errors after deploy, open **Vercel → your project → Logs** while loading the site. Common causes: missing **`AUTH_SECRET`**, wrong or missing **`DATABASE_URL`**, or Prisma schema not applied to the production DB (tables missing).
 
 ## Project layout
 

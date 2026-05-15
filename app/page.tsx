@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { auth, signIn } from "@/auth";
+import { authSafe, signIn } from "@/auth";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { GitHubIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 export default async function Home() {
-  const session = await auth();
+  const session = await authSafe();
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
