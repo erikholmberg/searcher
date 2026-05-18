@@ -23,6 +23,52 @@ import {
   dragPayloadMayContainUrl,
   extractHttpsJobUrl,
 } from "@/lib/url-from-drop";
+import { TruncateWithTooltip } from "@/components/truncate-with-tooltip";
+import {
+  SIDEBAR_WIDTH_MAX,
+  SIDEBAR_WIDTH_MIN,
+  useResizableSidebarWidth,
+} from "@/hooks/use-resizable-sidebar-width";
+
+function SidebarSearchItem({
+  name,
+  count,
+  selected,
+  onSelect,
+}: {
+  name: string;
+  count: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [tooltipTitle, setTooltipTitle] = React.useState<string | undefined>();
+  const handleTruncatedChange = React.useCallback(
+    (truncated: boolean) => setTooltipTitle(truncated ? name : undefined),
+    [name],
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      title={tooltipTitle}
+      className={cn(
+        "w-full text-left text-sm px-2 py-1.5 rounded-md flex items-center justify-between gap-2 hover:bg-muted min-w-0",
+        selected && "bg-muted",
+      )}
+    >
+      <TruncateWithTooltip
+        className="min-w-0 flex-1"
+        onTruncatedChange={handleTruncatedChange}
+      >
+        {name}
+      </TruncateWithTooltip>
+      <Badge variant="secondary" className="shrink-0 text-xs">
+        {count}
+      </Badge>
+    </button>
+  );
+}
 
 export function Dashboard() {
   const searchParams = useSearchParams();
@@ -46,6 +92,8 @@ export function Dashboard() {
   const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const { width: sidebarWidth, startResize, resetWidth, onSeparatorKeyDown } =
+    useResizableSidebarWidth();
 
   function openNewSearch(startWithUrl: string | null = null) {
     setCreateDialog({ open: true, startWithUrl });
@@ -276,52 +324,67 @@ export function Dashboard() {
             </p>
           </div>
         )}
-      <aside className="w-64 shrink-0 border-r border-border flex flex-col">
-        <div className="p-3 border-b border-border flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">Searches</span>
-          <Button size="sm" onClick={() => openNewSearch()}>
-            <Plus className="mr-1 size-4" />
-            New search
-          </Button>
-        </div>
-        <ScrollArea className="flex-1">
-          <nav className="p-2 space-y-1">
-            {loading && (
-              <>
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </>
-            )}
-            {!loading && roleTypes && roleTypes.length === 0 && (
-              <p className="text-xs text-muted-foreground px-2 py-4">
-                No searches yet.
-              </p>
-            )}
-            {roleTypes?.map((rt) => {
-              const visibleCount = rt.jobs.filter((j) => !j.hidden).length;
-              return (
-                <button
-                  key={rt.id}
-                  type="button"
-                  onClick={() => {
-                    router.replace("/dashboard");
-                    setSelectedId(rt.id);
-                  }}
-                  className={cn(
-                    "w-full text-left text-sm px-2 py-1.5 rounded-md flex items-center justify-between gap-2 hover:bg-muted",
-                    !viewAll && selectedId === rt.id && "bg-muted",
-                  )}
-                >
-                  <span className="truncate">{rt.name}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {visibleCount}
-                  </Badge>
-                </button>
-              );
-            })}
-          </nav>
-        </ScrollArea>
-      </aside>
+      <div
+        className="relative shrink-0 flex flex-col"
+        style={{ width: sidebarWidth }}
+      >
+        <aside className="flex flex-1 min-h-0 flex-col border-r border-border">
+          <div className="p-3 border-b border-border flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Searches</span>
+            <Button size="sm" onClick={() => openNewSearch()}>
+              <Plus className="mr-1 size-4" />
+              New search
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <nav className="p-2 space-y-1">
+              {loading && (
+                <>
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </>
+              )}
+              {!loading && roleTypes && roleTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground px-2 py-4">
+                  No searches yet.
+                </p>
+              )}
+              {roleTypes?.map((rt) => {
+                const visibleCount = rt.jobs.filter((j) => !j.hidden).length;
+                return (
+                  <SidebarSearchItem
+                    key={rt.id}
+                    name={rt.name}
+                    count={visibleCount}
+                    selected={!viewAll && selectedId === rt.id}
+                    onSelect={() => {
+                      router.replace("/dashboard");
+                      setSelectedId(rt.id);
+                    }}
+                  />
+                );
+              })}
+            </nav>
+          </ScrollArea>
+        </aside>
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-valuenow={sidebarWidth}
+          aria-valuemin={SIDEBAR_WIDTH_MIN}
+          aria-valuemax={SIDEBAR_WIDTH_MAX}
+          aria-label="Resize searches sidebar"
+          tabIndex={0}
+          title="Drag to resize. Double-click to reset. Arrow keys adjust width."
+          className="absolute inset-y-0 right-0 z-10 w-3 -translate-x-1/2 cursor-col-resize touch-none bg-transparent hover:bg-border/80 focus-visible:bg-ring focus-visible:outline-none"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            startResize(event.clientX, sidebarWidth);
+          }}
+          onDoubleClick={resetWidth}
+          onKeyDown={onSeparatorKeyDown}
+        />
+      </div>
 
       <main className="flex-1 min-w-0">
         {viewAll && loading && (
