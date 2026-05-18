@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="flex h-full min-h-full flex-col font-sans">
         {children}
         <Toaster richColors closeButton />
       </body>

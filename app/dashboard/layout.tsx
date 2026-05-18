@@ -14,8 +14,8 @@ export default async function DashboardLayout({
   if (!session) redirect("/signin");
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3">
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex shrink-0 z-20 items-center justify-between border-b border-border bg-background px-6 py-3">
         <Link href="/dashboard" className="font-semibold tracking-tight">
           Searcher
         </Link>
@@ -41,7 +41,7 @@ export default async function DashboardLayout({
           />
         </div>
       </header>
-      <div className="flex-1">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );
 }

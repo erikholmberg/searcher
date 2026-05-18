@@ -308,7 +308,7 @@ export function Dashboard() {
   return (
     <>
       <div
-        className="relative flex flex-1 min-h-[calc(100vh-3.25rem)]"
+        className="relative flex h-full min-h-0 flex-1"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -325,18 +325,18 @@ export function Dashboard() {
           </div>
         )}
       <div
-        className="relative shrink-0 flex flex-col"
+        className="relative flex h-full min-h-0 shrink-0 flex-col"
         style={{ width: sidebarWidth }}
       >
-        <aside className="flex flex-1 min-h-0 flex-col border-r border-border">
-          <div className="p-3 border-b border-border flex items-center justify-between gap-2">
+        <aside className="flex h-full min-h-0 flex-col border-r border-border">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border p-3">
             <span className="text-sm font-medium">Searches</span>
             <Button size="sm" onClick={() => openNewSearch()}>
               <Plus className="mr-1 size-4" />
               New search
             </Button>
           </div>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="min-h-0 flex-1">
             <nav className="p-2 space-y-1">
               {loading && (
                 <>
@@ -386,7 +386,7 @@ export function Dashboard() {
         />
       </div>
 
-      <main className="flex-1 min-w-0">
+      <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         {viewAll && loading && (
           <div className="p-6 space-y-3">
             <Skeleton className="h-8 w-1/3" />
@@ -396,8 +396,8 @@ export function Dashboard() {
         )}
 
         {viewAll && !loading && (
-          <div className="flex flex-col h-full">
-            <div className="border-b border-border p-4">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="shrink-0 border-b border-border p-4">
               <h2 className="text-xl font-semibold tracking-tight">All Jobs</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Every job across your searches. Favorites first, then most
@@ -410,7 +410,7 @@ export function Dashboard() {
                   : ""}
               </p>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="min-h-0 flex-1">
               <div className="p-4 space-y-3 w-full min-w-0">
                 {allJobsFlat.length === 0 && (
                   <p className="text-sm text-muted-foreground">
@@ -487,8 +487,8 @@ export function Dashboard() {
         )}
 
         {selected && !viewAll && (
-          <div className="flex flex-col h-full">
-            <div className="border-b border-border p-4 flex items-start justify-between gap-3">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold tracking-tight truncate">
                   {selected.name}
@@ -569,7 +569,7 @@ export function Dashboard() {
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="min-h-0 flex-1">
               <div className="p-4 space-y-3 w-full min-w-0">
                 {selected.sources.length === 0 && (
                   <p className="text-sm text-muted-foreground">
