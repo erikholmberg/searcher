@@ -6,6 +6,7 @@ import { adzunaProvider } from "@/lib/jobs/providers/adzuna";
 import { greenhouseProvider } from "@/lib/jobs/providers/greenhouse";
 import { leverProvider } from "@/lib/jobs/providers/lever";
 import { publicJobPostingProvider } from "@/lib/jobs/providers/public-job-posting";
+import { careersSiteProvider } from "@/lib/jobs/providers/careers-site";
 
 const REGISTRY: Partial<Record<SourceKindString, JobProvider<unknown, unknown>>> = {
   arbeitnow_query: arbeitnowProvider as JobProvider<unknown, unknown>,
@@ -14,6 +15,7 @@ const REGISTRY: Partial<Record<SourceKindString, JobProvider<unknown, unknown>>>
   greenhouse_board: greenhouseProvider as JobProvider<unknown, unknown>,
   lever_board: leverProvider as JobProvider<unknown, unknown>,
   public_job_posting: publicJobPostingProvider as JobProvider<unknown, unknown>,
+  careers_site: careersSiteProvider as JobProvider<unknown, unknown>,
 };
 
 export function getProvider(

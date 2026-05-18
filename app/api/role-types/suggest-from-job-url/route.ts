@@ -11,6 +11,7 @@ import {
   seedListingFromStructured,
 } from "@/lib/jobs/seed-listing";
 import { assertAiConfigured, DEFAULT_FAST_MODEL, model } from "@/lib/ai";
+import { resolveCareersListingUrl } from "@/lib/jobs/discover";
 
 export const runtime = "nodejs";
 
@@ -90,7 +91,9 @@ export async function POST(req: Request) {
     "- A short name for the search.",
     "- A 1-2 sentence intent describing what 'similar' means.",
     "",
-    "Do not propose search sources or keywords—the app will attach a single source from this URL.",
+    page.kind === "generic"
+      ? "Do not propose search sources—the app will search this employer's careers site for similar roles."
+      : "Do not propose search sources or keywords—the app will attach a board source from this URL.",
   ].join("\n");
 
   let aiResult;
@@ -109,7 +112,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const sources = singleSourceFromJobPage(page);
+  let discovery: { listingUrl: string; candidateCount: number } | null = null;
+  if (page.kind === "generic") {
+    try {
+      discovery = await resolveCareersListingUrl(page.finalUrl);
+    } catch {
+      discovery = null;
+    }
+  }
+
+  const sources = singleSourceFromJobPage(page, {
+    listingUrl: discovery?.listingUrl ?? null,
+  });
 
   const seedListing =
     page.kind === "structured"
@@ -135,6 +149,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     posting: postingDto,
     seedListing,
+    discovery,
     proposal: {
       name: aiResult.object.name,
       intent: aiResult.object.intent,

@@ -1,5 +1,8 @@
 import type { ResolvedPosting } from "@/lib/jobs/resolve-job-url";
-import { resolveJobUrl } from "@/lib/jobs/resolve-job-url";
+import {
+  resolveEmbeddedAtsFromHtml,
+  resolveJobUrl,
+} from "@/lib/jobs/resolve-job-url";
 import {
   buildGenericJobExcerpt,
   extractGenericPageSignals,
@@ -30,6 +33,9 @@ export async function loadJobPageForSuggest(rawUrl: string): Promise<SuggestJobP
   if (structured) return { kind: "structured", posting: structured };
 
   const { finalUrl, html } = await fetchHttpsHtmlForSuggest(rawUrl);
+  const embedded = await resolveEmbeddedAtsFromHtml(html, finalUrl);
+  if (embedded) return { kind: "structured", posting: embedded };
+
   const sig = extractGenericPageSignals(html);
   const excerpt = buildGenericJobExcerpt(html);
   const title = sig.title?.trim() || finalUrl;

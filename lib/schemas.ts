@@ -37,6 +37,16 @@ export const PublicJobPostingConfig = z.object({
 });
 export type PublicJobPostingConfig = z.infer<typeof PublicJobPostingConfig>;
 
+export const CareersSiteConfig = z.object({
+  seedUrl: httpsJobPageUrl,
+  listingUrl: httpsJobPageUrl.optional().nullable(),
+  seedTitle: z.string().max(500).optional().nullable(),
+  seedExcerpt: z.string().max(10000).optional().nullable(),
+  maxJobs: z.number().int().positive().max(30).optional(),
+  minSimilarity: z.number().min(0).max(1).optional(),
+});
+export type CareersSiteConfig = z.infer<typeof CareersSiteConfig>;
+
 export const SourceKind = z.enum([
   "adzuna_query",
   "arbeitnow_query",
@@ -45,6 +55,7 @@ export const SourceKind = z.enum([
   "lever_board",
   "ashby_board",
   "public_job_posting",
+  "careers_site",
 ]);
 export type SourceKind = z.infer<typeof SourceKind>;
 
@@ -63,6 +74,7 @@ export const SourceInput = z.discriminatedUnion("kind", [
     kind: z.literal("public_job_posting"),
     config: PublicJobPostingConfig,
   }),
+  z.object({ kind: z.literal("careers_site"), config: CareersSiteConfig }),
 ]);
 export type SourceInput = z.infer<typeof SourceInput>;
 
@@ -106,6 +118,7 @@ export const SourceUpdate = z.object({
     AggregatorQueryConfig,
     AtsBoardConfig,
     PublicJobPostingConfig,
+    CareersSiteConfig,
   ]),
 });
 export type SourceUpdate = z.infer<typeof SourceUpdate>;

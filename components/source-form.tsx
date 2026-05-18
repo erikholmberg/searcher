@@ -26,6 +26,11 @@ export interface SourceDraft {
   extraKeywords?: string;
   // public_job_posting
   postingUrl?: string;
+  // careers_site
+  seedUrl?: string;
+  listingUrl?: string;
+  seedTitle?: string;
+  seedExcerpt?: string;
 }
 
 interface Props {
@@ -38,6 +43,7 @@ interface Props {
 export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
   const isAts = value.kind.endsWith("_board");
   const isPublicPosting = value.kind === "public_job_posting";
+  const isCareersSite = value.kind === "careers_site";
   const id = (field: string) => `source-${index}-${field}`;
 
   return (
@@ -68,6 +74,8 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
             const k = v as SourceKindString;
             if (k === "public_job_posting") {
               onChange({ kind: k, postingUrl: "" });
+            } else if (k === "careers_site") {
+              onChange({ kind: k, seedUrl: "", listingUrl: "" });
             } else if (k.endsWith("_board")) {
               onChange({ kind: k, boardToken: "", extraKeywords: "" });
             } else {
@@ -108,6 +116,33 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
             with SSRF checks. Refresh re-reads the page into this search.
           </p>
         </div>
+      ) : isCareersSite ? (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor={id("seedUrl")}>Seed job URL</Label>
+            <Input
+              id={id("seedUrl")}
+              placeholder="https://… (the inspiration posting)"
+              value={value.seedUrl ?? ""}
+              onChange={(e) => onChange({ ...value, seedUrl: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={id("listingUrl")}>Careers listing URL (optional)</Label>
+            <Input
+              id={id("listingUrl")}
+              placeholder="https://…/careers — auto-detected if empty"
+              value={value.listingUrl ?? ""}
+              onChange={(e) =>
+                onChange({ ...value, listingUrl: e.target.value })
+              }
+            />
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Refresh discovers same-site job links and ingests roles similar to
+            the seed posting.
+          </p>
+        </>
       ) : isAts ? (
         <>
           <div className="space-y-1.5">
@@ -196,6 +231,20 @@ export function sourceDraftToInput(draft: SourceDraft) {
       kind: draft.kind,
       config: {
         url: (draft.postingUrl ?? "").trim(),
+      },
+    };
+  }
+  if (draft.kind === "careers_site") {
+    const listing = (draft.listingUrl ?? "").trim();
+    const seedTitle = (draft.seedTitle ?? "").trim();
+    const seedExcerpt = (draft.seedExcerpt ?? "").trim();
+    return {
+      kind: draft.kind,
+      config: {
+        seedUrl: (draft.seedUrl ?? "").trim(),
+        listingUrl: listing || undefined,
+        seedTitle: seedTitle || undefined,
+        seedExcerpt: seedExcerpt || undefined,
       },
     };
   }

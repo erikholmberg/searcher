@@ -5,6 +5,7 @@ import { jsonError, notFound, unauthorized, zodError } from "@/lib/http";
 import {
   AggregatorQueryConfig,
   AtsBoardConfig,
+  CareersSiteConfig,
   PublicJobPostingConfig,
   SourceUpdate,
 } from "@/lib/schemas";
@@ -13,6 +14,7 @@ export const runtime = "nodejs";
 
 function configSchemaForKind(kind: string) {
   if (kind === "public_job_posting") return PublicJobPostingConfig;
+  if (kind === "careers_site") return CareersSiteConfig;
   if (kind.endsWith("_board")) return AtsBoardConfig;
   return AggregatorQueryConfig;
 }

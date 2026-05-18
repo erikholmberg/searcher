@@ -20,6 +20,8 @@ interface Props {
   showHiddenControls?: boolean;
   /** When set (e.g. All jobs view), shown as muted context under the title. */
   searchLabel?: string;
+  /** Brief emphasis after creating a search from a job URL. */
+  highlighted?: boolean;
 }
 
 export function JobRow({
@@ -29,6 +31,7 @@ export function JobRow({
   onRemoved,
   showHiddenControls = false,
   searchLabel,
+  highlighted = false,
 }: Props) {
   const [busy, setBusy] = React.useState(false);
 
@@ -81,7 +84,14 @@ export function JobRow({
   const addedLabel = new Date(job.addedAt).toLocaleDateString();
 
   return (
-    <Card className={cn("p-3", job.favorite && "ring-1 ring-amber-400/60")}>
+    <Card
+      id={`job-listing-${job.listing.id}`}
+      className={cn(
+        "p-3 scroll-mt-4 transition-[box-shadow,background-color] duration-500",
+        job.favorite && "ring-1 ring-amber-400/60",
+        highlighted && "ring-2 ring-primary bg-primary/10 shadow-sm",
+      )}
+    >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">

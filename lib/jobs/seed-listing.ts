@@ -58,7 +58,7 @@ export async function attachSeedListingToRoleType(
   roleTypeId: string,
   seed: SeedListingInput,
   options?: { sourceId?: string | null },
-): Promise<void> {
+): Promise<string> {
   const listing = await prisma.jobListing.upsert({
     where: { externalId: seed.externalId },
     update: {
@@ -100,10 +100,12 @@ export async function attachSeedListingToRoleType(
       "code" in err &&
       (err as { code?: string }).code === "P2002"
     ) {
-      return;
+      return listing.id;
     }
     throw err;
   }
+
+  return listing.id;
 }
 
 /** Pick a source row to attribute the seed job when possible. */
@@ -115,6 +117,12 @@ export function pickSeedSourceId(
     if (s.kind === "public_job_posting") {
       const cfg = s.config as { url?: string };
       if (cfg.url && publicJobExternalId(cfg.url.trim()) === seed.externalId) {
+        return s.id;
+      }
+    }
+    if (s.kind === "careers_site") {
+      const cfg = s.config as { seedUrl?: string };
+      if (cfg.seedUrl && publicJobExternalId(cfg.seedUrl.trim()) === seed.externalId) {
         return s.id;
       }
     }

@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SourceFormFields, SourceDraft, sourceDraftToInput } from "@/components/source-form";
 import { api } from "@/lib/api-client";
 import { SOURCE_KIND_OPTIONS } from "@/lib/types";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus, Sparkles, Loader2 } from "lucide-react";
+import { JobUrlReadingPanel } from "@/components/job-url-reading-panel";
 
 function describeProposalSource(sources: SourceDraft[]): string {
   const s = sources[0];
@@ -48,6 +49,7 @@ type Suggestion = {
     workMode: "remote" | "hybrid" | "onsite" | "unknown";
   };
   seedListing: SeedListing;
+  discovery: { listingUrl: string; candidateCount: number } | null;
   proposal: {
     name: string;
     intent: string;
@@ -55,12 +57,18 @@ type Suggestion = {
   };
 };
 
+export type CreatedRoleTypeResult = {
+  roleTypeId: string;
+  /** Inspiration job from URL flow; scroll/highlight in the job list. */
+  highlightJobListingId?: string;
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** When set on open, switches to the URL tab and runs suggest once. */
   startWithUrl?: string | null;
-  onCreated: () => void;
+  onCreated: (result: CreatedRoleTypeResult) => void;
 };
 
 export function NewRoleTypeDialog({
@@ -161,7 +169,14 @@ export function NewRoleTypeDialog({
     }
     setSubmitting(true);
     try {
-      await api("/api/role-types", {
+      const res = await api<{
+        roleType: { id: string };
+        seedJobListingId?: string;
+        ingestSummary?: {
+          addedCount: number;
+          error?: string;
+        } | null;
+      }>("/api/role-types", {
         method: "POST",
         body: JSON.stringify({
           name: resolvedName,
@@ -170,13 +185,30 @@ export function NewRoleTypeDialog({
           seedListing: suggestion?.seedListing ?? undefined,
         }),
       });
-      toast.success(
-        suggestion?.seedListing
-          ? `Created "${resolvedName}" with the inspiration job`
-          : `Created "${resolvedName}"`,
-      );
+      const added = res.ingestSummary?.addedCount ?? 0;
+      if (res.ingestSummary?.error) {
+        toast.warning(
+          `Created "${resolvedName}" but discovery failed: ${res.ingestSummary.error}`,
+        );
+      } else if (added > 0) {
+        toast.success(
+          `Created "${resolvedName}" with ${added} similar role${added === 1 ? "" : "s"}`,
+        );
+      } else if (suggestion?.seedListing) {
+        toast.success(
+          `Created "${resolvedName}" with the inspiration job`,
+        );
+      } else {
+        toast.success(`Created "${resolvedName}"`);
+      }
       handleOpenChange(false);
-      onCreated();
+      onCreated({
+        roleTypeId: res.roleType.id,
+        highlightJobListingId:
+          suggestion?.seedListing && res.seedJobListingId
+            ? res.seedJobListingId
+            : undefined,
+      });
     } catch (err) {
       toast.error((err as Error).message || "Failed to create");
     } finally {
@@ -186,7 +218,7 @@ export function NewRoleTypeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl min-w-0 overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>New search</DialogTitle>
           <DialogDescription>
@@ -195,7 +227,11 @@ export function NewRoleTypeDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "manual" | "url")}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as "manual" | "url")}
+          className="min-w-0"
+        >
           <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="manual">Manual</TabsTrigger>
             <TabsTrigger value="url">
@@ -271,7 +307,7 @@ export function NewRoleTypeDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="url" className="space-y-4 pt-4">
+          <TabsContent value="url" className="min-w-0 space-y-4 overflow-x-hidden pt-4">
             <div className="space-y-1.5">
               <Label htmlFor="job-url">Job posting URL</Label>
               <Input
@@ -279,23 +315,36 @@ export function NewRoleTypeDialog({
                 placeholder="https://… (any public job posting page, https only)"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                disabled={suggestLoading || submitting}
               />
               <p className="text-muted-foreground text-xs">
                 Paste a public https job URL, or drag one onto the dashboard.
-                Creates one source from that URL (Greenhouse/Lever board or public
-                job page). AI proposes the search name and intent only.
+                Greenhouse/Lever links use the full board; other sites search the
+                careers page for similar roles. AI proposes the search name and intent.
               </p>
             </div>
             <Button
               type="button"
               onClick={handleSuggest}
-              disabled={suggestLoading || !url.trim()}
+              disabled={suggestLoading || submitting || !url.trim()}
             >
-              <Sparkles className="mr-1 size-4" />
-              {suggestLoading ? "Reading…" : "Suggest with AI"}
+              {suggestLoading ? (
+                <Loader2 className="mr-1 size-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1 size-4" />
+              )}
+              {suggestLoading ? "Reading page…" : "Suggest with AI"}
             </Button>
 
-            {suggestion && (
+            {suggestLoading && (
+              <JobUrlReadingPanel phase="reading" url={url.trim()} />
+            )}
+
+            {submitting && suggestion && tab === "url" && (
+              <JobUrlReadingPanel phase="discovering" url={url.trim()} />
+            )}
+
+            {suggestion && !suggestLoading && (
               <div className="border border-border rounded-lg p-3 text-sm space-y-3">
                 <div>
                   <p className="font-medium">{suggestion.posting.title}</p>
@@ -322,6 +371,20 @@ export function NewRoleTypeDialog({
                     <span className="font-medium">Source:</span>{" "}
                     {describeProposalSource(suggestion.proposal.sources)}
                   </p>
+                  {suggestion.discovery && (
+                    <p>
+                      <span className="font-medium">Careers listing:</span>{" "}
+                      <span className="break-all text-muted-foreground">
+                        {suggestion.discovery.listingUrl}
+                      </span>
+                      {suggestion.discovery.candidateCount > 0 && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          (~{suggestion.discovery.candidateCount} links found)
+                        </span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button
@@ -330,7 +393,7 @@ export function NewRoleTypeDialog({
                     onClick={handleCreate}
                     disabled={submitting}
                   >
-                    {submitting ? "Creating…" : "Create search"}
+                    {submitting ? "Discovering…" : "Create search"}
                   </Button>
                   <Button
                     type="button"
@@ -343,8 +406,8 @@ export function NewRoleTypeDialog({
                   </Button>
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  Creates the search with that URL as its source and attaches
-                  this job listing.
+                  Creates the search, attaches this job, and discovers similar
+                  roles on the same careers site when possible.
                 </p>
               </div>
             )}

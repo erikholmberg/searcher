@@ -30,6 +30,14 @@ export async function ingestRoleType(
   roleTypeId: string,
   options: { mode: "refresh" | "find-more" },
 ): Promise<IngestSummary> {
+  const roleType = await prisma.roleType.findUnique({
+    where: { id: roleTypeId },
+    select: { intent: true },
+  });
+  if (!roleType) {
+    return { addedCount: 0, exhausted: true, perSource: [] };
+  }
+
   const dismissedRows = await prisma.roleTypeDismissedJob.findMany({
     where: { roleTypeId },
     select: { externalId: true },
@@ -40,6 +48,15 @@ export async function ingestRoleType(
     where: { roleTypeId },
     orderBy: { createdAt: "asc" },
   });
+
+  let linkedExternalIds: string[] | null = null;
+  if (options.mode === "find-more") {
+    const linked = await prisma.roleTypeJob.findMany({
+      where: { roleTypeId },
+      select: { jobListing: { select: { externalId: true } } },
+    });
+    linkedExternalIds = linked.map((r) => r.jobListing.externalId);
+  }
 
   const perSource: IngestSummary["perSource"] = [];
   let total = 0;
@@ -59,8 +76,23 @@ export async function ingestRoleType(
       continue;
     }
 
-    const inputState =
+    let inputState: unknown | null =
       options.mode === "refresh" ? null : (source.paginationState ?? null);
+
+    if (source.kind === "careers_site" && options.mode === "find-more") {
+      inputState = {
+        skipExternalIds: linkedExternalIds ?? [],
+        searchIntent: roleType.intent,
+      };
+    }
+
+    const providerConfig =
+      source.kind === "careers_site"
+        ? {
+            ...(source.config as Record<string, unknown>),
+            searchIntent: roleType.intent,
+          }
+        : source.config;
 
     const expandRefresh = provider.expandRefreshToAllPages === true;
     let cursor: unknown | null = inputState;
@@ -76,7 +108,7 @@ export async function ingestRoleType(
       while (true) {
         iterations += 1;
         lastResult = await provider.fetchPage(
-          source.config,
+          providerConfig,
           cursor as never,
         );
 
@@ -117,6 +149,7 @@ export async function ingestRoleType(
                 roleTypeId,
                 jobListingId: listing.id,
                 sourceId: source.id,
+                matchScore: j.matchScore ?? undefined,
               },
             });
             added += 1;

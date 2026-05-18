@@ -11,6 +11,8 @@ export interface NormalizedJob {
   postedAt: Date | null;
   locationDisplay: string | null;
   workMode: WorkMode;
+  /** Set by careers_site and other relevance-aware providers. */
+  matchScore?: number | null;
 }
 
 export interface FetchPageResult {

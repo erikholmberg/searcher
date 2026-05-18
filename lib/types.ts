@@ -10,7 +10,8 @@ export type SourceKindString =
   | "greenhouse_board"
   | "lever_board"
   | "ashby_board"
-  | "public_job_posting";
+  | "public_job_posting"
+  | "careers_site";
 
 export interface JobListingDto {
   id: string;
@@ -63,6 +64,11 @@ export const SOURCE_KIND_OPTIONS: { value: SourceKindString; label: string; fami
     {
       value: "public_job_posting",
       label: "Public job page (https HTML)",
+      family: "aggregator",
+    },
+    {
+      value: "careers_site",
+      label: "Careers site (similar roles)",
       family: "aggregator",
     },
   ];

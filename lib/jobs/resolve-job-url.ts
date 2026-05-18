@@ -190,6 +190,35 @@ async function fetchLever(
 }
 
 /**
+ * Detect Greenhouse/Lever identifiers embedded in a custom careers page HTML.
+ */
+export async function resolveEmbeddedAtsFromHtml(
+  html: string,
+  _pageUrl: string,
+): Promise<ResolvedPosting | null> {
+  const drupal = parseGreenhouseFromDrupalSettings(html);
+  if (drupal) {
+    return fetchGreenhouse(drupal.company_name, drupal.jid);
+  }
+
+  const gh = html.match(
+    /boards\.greenhouse\.io\/([^/"'\s?#]+)\/jobs\/(\d+)/i,
+  );
+  if (gh) {
+    return fetchGreenhouse(gh[1], gh[2]);
+  }
+
+  const lever = html.match(
+    /jobs\.lever\.co\/([^/"'\s?#]+)\/([0-9a-f-]{36})/i,
+  );
+  if (lever) {
+    return fetchLever(lever[1], lever[2]);
+  }
+
+  return null;
+}
+
+/**
  * Parse and resolve a posting URL. Returns null when the host is not allowed
  * or the URL pattern is not recognized.
  */

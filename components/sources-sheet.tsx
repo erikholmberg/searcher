@@ -29,6 +29,13 @@ function sourceToDraft(s: RoleTypeSourceDto): SourceDraft {
       postingUrl: (cfg?.url as string) ?? "",
     };
   }
+  if (s.kind === "careers_site") {
+    return {
+      kind: s.kind,
+      seedUrl: (cfg?.seedUrl as string) ?? "",
+      listingUrl: (cfg?.listingUrl as string) ?? "",
+    };
+  }
   if (s.kind.endsWith("_board")) {
     return {
       kind: s.kind,

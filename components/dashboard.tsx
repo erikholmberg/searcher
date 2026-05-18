@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { JobRow } from "@/components/job-row";
-import { NewRoleTypeDialog } from "@/components/new-role-type-dialog";
+import {
+  NewRoleTypeDialog,
+  type CreatedRoleTypeResult,
+} from "@/components/new-role-type-dialog";
 import { EditRoleTypeDialog } from "@/components/edit-role-type-dialog";
 import { SourcesSheet } from "@/components/sources-sheet";
 import { api } from "@/lib/api-client";
@@ -36,7 +39,13 @@ export function Dashboard() {
     startWithUrl: string | null;
   }>({ open: false, startWithUrl: null });
   const [isDragOver, setIsDragOver] = React.useState(false);
+  const [highlightJobListingId, setHighlightJobListingId] = React.useState<
+    string | null
+  >(null);
   const dragDepthRef = React.useRef(0);
+  const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   function openNewSearch(startWithUrl: string | null = null) {
     setCreateDialog({ open: true, startWithUrl });
@@ -81,21 +90,47 @@ export function Dashboard() {
     openNewSearch(url);
   }
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api<{ roleTypes: RoleTypeDto[] }>("/api/role-types");
-      setRoleTypes(res.roleTypes);
-      setSelectedId((prev) => {
-        if (prev && res.roleTypes.find((rt) => rt.id === prev)) return prev;
-        return res.roleTypes[0]?.id ?? null;
-      });
-    } catch (err) {
-      toast.error((err as Error).message || "Failed to load searches");
-    } finally {
-      setLoading(false);
+  const load = React.useCallback(
+    async (options?: { selectRoleTypeId?: string }) => {
+      setLoading(true);
+      try {
+        const res = await api<{ roleTypes: RoleTypeDto[] }>("/api/role-types");
+        setRoleTypes(res.roleTypes);
+        setSelectedId((prev) => {
+          if (options?.selectRoleTypeId) {
+            const exists = res.roleTypes.find(
+              (rt) => rt.id === options.selectRoleTypeId,
+            );
+            if (exists) return options.selectRoleTypeId;
+          }
+          if (prev && res.roleTypes.find((rt) => rt.id === prev)) return prev;
+          return res.roleTypes[0]?.id ?? null;
+        });
+      } catch (err) {
+        toast.error((err as Error).message || "Failed to load searches");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  async function handleRoleTypeCreated(result: CreatedRoleTypeResult) {
+    if (viewAll) {
+      router.replace("/dashboard");
     }
-  }, []);
+    await load({ selectRoleTypeId: result.roleTypeId });
+    if (result.highlightJobListingId) {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+      setHighlightJobListingId(result.highlightJobListingId);
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightJobListingId(null);
+        highlightTimeoutRef.current = null;
+      }, 5000);
+    }
+  }
 
   React.useEffect(() => {
     // Initial fetch on mount; load() is stable thanks to useCallback.
@@ -106,6 +141,12 @@ export function Dashboard() {
   const selected = roleTypes?.find((rt) => rt.id === selectedId) ?? null;
   const visibleJobs = selected?.jobs.filter((j) => !j.hidden) ?? [];
   const hiddenJobs = selected?.jobs.filter((j) => j.hidden) ?? [];
+
+  React.useEffect(() => {
+    if (!highlightJobListingId || viewAll || !selected) return;
+    const el = document.getElementById(`job-listing-${highlightJobListingId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightJobListingId, viewAll, selected, visibleJobs.length]);
 
   const allJobsFlat = React.useMemo(() => {
     if (!roleTypes) return [];
@@ -484,6 +525,7 @@ export function Dashboard() {
                     key={j.id}
                     roleTypeId={selected.id}
                     job={j}
+                    highlighted={highlightJobListingId === j.listing.id}
                     onChanged={(next) => updateLocalJob(selected.id, next)}
                     onRemoved={(listingId) =>
                       removeLocalJob(selected.id, listingId)
@@ -527,7 +569,7 @@ export function Dashboard() {
         open={createDialog.open}
         onOpenChange={handleCreateDialogOpenChange}
         startWithUrl={createDialog.startWithUrl}
-        onCreated={load}
+        onCreated={handleRoleTypeCreated}
       />
     </>
   );

@@ -8,8 +8,10 @@ import {
   pickSeedSourceId,
 } from "@/lib/jobs/seed-listing";
 import { compareRoleTypeJobs } from "@/lib/compare-role-type-job";
+import { ingestRoleType } from "@/lib/jobs/ingest";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 /**
  * GET /api/role-types
@@ -109,6 +111,7 @@ export async function POST(req: Request) {
     include: { sources: true },
   });
 
+  let seedJobListingId: string | undefined;
   if (seedListing) {
     const seed = {
       externalId: seedListing.externalId,
@@ -122,8 +125,28 @@ export async function POST(req: Request) {
       workMode: seedListing.workMode,
     };
     const sourceId = pickSeedSourceId(roleType.sources, seed);
-    await attachSeedListingToRoleType(roleType.id, seed, { sourceId });
+    seedJobListingId = await attachSeedListingToRoleType(roleType.id, seed, {
+      sourceId,
+    });
   }
 
-  return NextResponse.json({ roleType }, { status: 201 });
+  const hasCareersSite = sources.some((s) => s.kind === "careers_site");
+  let ingestSummary = null;
+  if (hasCareersSite) {
+    try {
+      ingestSummary = await ingestRoleType(roleType.id, { mode: "refresh" });
+    } catch (err) {
+      ingestSummary = {
+        addedCount: 0,
+        exhausted: false,
+        perSource: [],
+        error: (err as Error).message,
+      };
+    }
+  }
+
+  return NextResponse.json(
+    { roleType, ingestSummary, seedJobListingId },
+    { status: 201 },
+  );
 }
