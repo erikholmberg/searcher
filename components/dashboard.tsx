@@ -398,7 +398,7 @@ export function Dashboard() {
         {viewAll && !loading && (
           <div className="flex flex-col h-full">
             <div className="border-b border-border p-4">
-              <h2 className="text-xl font-semibold tracking-tight">All jobs</h2>
+              <h2 className="text-xl font-semibold tracking-tight">All Jobs</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Every job across your searches. Favorites first, then most
                 recently added.

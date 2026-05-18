@@ -1,16 +1,17 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { buttonVariants } from "@/components/ui/button";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
+import { logoutAction } from "@/lib/actions/logout";
 import { cn } from "@/lib/utils";
 
 interface AccountMenuProps {
@@ -30,9 +31,10 @@ export function AccountMenu({ name, email, image }: AccountMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        aria-label="Account menu"
         className={cn(
           buttonVariants({ variant: "outline", size: "icon-sm" }),
-          "rounded-full p-0 overflow-hidden",
+          "rounded-full p-0 overflow-hidden size-8 shrink-0",
         )}
       >
         {image ? (
@@ -40,37 +42,35 @@ export function AccountMenu({ name, email, image }: AccountMenuProps) {
           <img
             src={image}
             alt={name ?? "Avatar"}
-            className="size-7 rounded-full"
+            className="size-full object-cover pointer-events-none"
           />
         ) : (
           <span className="text-xs font-medium">{initials}</span>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">{name ?? "Signed in"}</span>
-          {email && (
-            <span className="text-muted-foreground text-xs font-normal">
-              {email}
-            </span>
-          )}
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">{name ?? "Signed in"}</span>
+            {email && (
+              <span className="text-muted-foreground text-xs font-normal">
+                {email}
+              </span>
+            )}
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <UserIcon className="mr-2 size-4" />
-          Account settings (soon)
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          className="cursor-pointer"
-          onClick={() => {
-            void signOut({ redirectTo: "/" });
-          }}
-        >
-          <LogOut className="mr-2 size-4" />
-          Sign out
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={() => {
+              void logoutAction();
+            }}
+          >
+            <LogOut className="mr-2 size-4" />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
