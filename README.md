@@ -8,7 +8,7 @@ Built with **Next.js 16**, **React 19**, **Prisma** (Postgres), **Auth.js**, **T
 
 - **Searches** — Name, optional intent (used for AI fit summaries), and multiple sources per search.
 - **Create from a job URL** — Paste or **drag a public `https` posting URL** onto the dashboard; the app fetches the page (SSRF-safe), adds **one source** from that URL, uses AI for name/intent, creates the search, and **attaches that job** immediately.
-- **All jobs** — Header link to see every job across searches (favorites first, then date added).
+- **All Jobs** — Header link to see every job across searches (favorites first, then date added).
 - **Job list** — Favorite (pinned), hide (dismissed from the search; ingest skips them), remove from the list, open posting URL.
 - **AI fit** — Streamed “why this might fit” blurb per job vs. the search intent (requires `AI_GATEWAY_API_KEY`).
 
@@ -23,6 +23,7 @@ Built with **Next.js 16**, **React 19**, **Prisma** (Postgres), **Auth.js**, **T
 | **Lever board** | Site slug (e.g. from `jobs.lever.co/<site>`). |
 | **Ashby board** | Jobs page name (e.g. from `jobs.ashbyhq.com/<name>`). |
 | **Public job page** | Single `https` posting URL; HTML extract + refresh snapshot. |
+| **Careers site** | Paste a company careers listing URL; AI scores similar-looking job links and ingests the best matches. |
 
 Structured ATS URLs (Greenhouse, Lever, Playlist careers pages that embed Greenhouse) resolve via public APIs when pasted in **Suggest from job URL**. Other hosts use generic HTML extraction.
 
