@@ -10,6 +10,7 @@ import { RoleTypeJobDto } from "@/lib/types";
 import { Star, EyeOff, ExternalLink, Undo2, Trash2 } from "lucide-react";
 import { stripHtml } from "@/lib/jobs/utils";
 import { cn } from "@/lib/utils";
+import { JobFitSummary } from "@/components/job-fit-summary";
 
 interface Props {
   job: RoleTypeJobDto;
@@ -20,6 +21,9 @@ interface Props {
   showHiddenControls?: boolean;
   /** When set (e.g. All jobs view), shown as muted context under the title. */
   searchLabel?: string;
+  /** Search name for AI fit summary (required to show fit control). */
+  roleTypeName?: string;
+  roleTypeIntent?: string | null;
   /** Brief emphasis after creating a search from a job URL. */
   highlighted?: boolean;
 }
@@ -31,6 +35,8 @@ export function JobRow({
   onRemoved,
   showHiddenControls = false,
   searchLabel,
+  roleTypeName,
+  roleTypeIntent,
   highlighted = false,
 }: Props) {
   const [busy, setBusy] = React.useState(false);
@@ -127,6 +133,13 @@ export function JobRow({
               {stripHtml(job.listing.descriptionSnippet, 1500)}
             </p>
           )}
+          {roleTypeName ? (
+            <JobFitSummary
+              roleTypeName={roleTypeName}
+              roleTypeIntent={roleTypeIntent}
+              listing={job.listing}
+            />
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1 shrink-0">

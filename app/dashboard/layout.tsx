@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authSafe } from "@/auth";
 import { AccountMenu } from "@/components/account-menu";
+import { DashboardNav } from "@/components/dashboard-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -20,20 +22,9 @@ export default async function DashboardLayout({
           Searcher
         </Link>
         <div className="flex items-center gap-6">
-          <nav className="flex items-center gap-4 text-sm">
-            <Link
-              href="/dashboard"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Searches
-            </Link>
-            <Link
-              href="/dashboard?view=all"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              All Jobs
-            </Link>
-          </nav>
+          <Suspense fallback={<nav className="h-5 w-32" aria-hidden />}>
+            <DashboardNav />
+          </Suspense>
           <AccountMenu
             name={session.user?.name}
             email={session.user?.email}

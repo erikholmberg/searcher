@@ -149,13 +149,26 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
             <Label htmlFor={id("boardToken")}>Board token / site slug</Label>
             <Input
               id={id("boardToken")}
-              placeholder="e.g. stripe (Greenhouse) or notion (Lever)"
+              placeholder={
+                value.kind === "ashby_board"
+                  ? "e.g. Ashby (from jobs.ashbyhq.com/Ashby)"
+                  : "e.g. stripe (Greenhouse) or notion (Lever)"
+              }
               value={value.boardToken ?? ""}
               onChange={(e) => onChange({ ...value, boardToken: e.target.value })}
             />
             <p className="text-muted-foreground text-xs">
-              Take it from the public board URL (e.g.
-              boards.greenhouse.io/<strong>stripe</strong>).
+              {value.kind === "ashby_board" ? (
+                <>
+                  From the public board URL (e.g. jobs.ashbyhq.com/
+                  <strong>YourOrg</strong>).
+                </>
+              ) : (
+                <>
+                  Take it from the public board URL (e.g.
+                  boards.greenhouse.io/<strong>stripe</strong>).
+                </>
+              )}
             </p>
           </div>
           <div className="space-y-1.5">

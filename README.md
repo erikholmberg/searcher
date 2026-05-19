@@ -21,11 +21,10 @@ Built with **Next.js 16**, **React 19**, **Prisma** (Postgres), **Auth.js**, **T
 | **Adzuna** | Requires `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`. |
 | **Greenhouse board** | Public board token (e.g. from `boards.greenhouse.io/<token>`). |
 | **Lever board** | Site slug (e.g. from `jobs.lever.co/<site>`). |
+| **Ashby board** | Jobs page name (e.g. from `jobs.ashbyhq.com/<name>`). |
 | **Public job page** | Single `https` posting URL; HTML extract + refresh snapshot. |
 
 Structured ATS URLs (Greenhouse, Lever, Playlist careers pages that embed Greenhouse) resolve via public APIs when pasted in **Suggest from job URL**. Other hosts use generic HTML extraction.
-
-**Ashby** appears in the schema/UI types but is not wired in the provider registry yet.
 
 ## Prerequisites
 

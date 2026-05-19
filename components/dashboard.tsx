@@ -202,6 +202,7 @@ export function Dashboard() {
       job: RoleTypeJobDto;
       roleTypeId: string;
       roleTypeName: string;
+      roleTypeIntent: string | null;
     }> = [];
     for (const rt of roleTypes) {
       for (const j of rt.jobs) {
@@ -209,6 +210,7 @@ export function Dashboard() {
           job: j,
           roleTypeId: rt.id,
           roleTypeName: rt.name,
+          roleTypeIntent: rt.intent,
         });
       }
     }
@@ -418,12 +420,15 @@ export function Dashboard() {
                     or open <strong>New search</strong>.
                   </p>
                 )}
-                {allVisibleJobs.map(({ job, roleTypeId, roleTypeName }) => (
+                {allVisibleJobs.map(
+                  ({ job, roleTypeId, roleTypeName, roleTypeIntent }) => (
                   <JobRow
                     key={`${roleTypeId}-${job.id}`}
                     roleTypeId={roleTypeId}
                     job={job}
                     searchLabel={`Search: ${roleTypeName}`}
+                    roleTypeName={roleTypeName}
+                    roleTypeIntent={roleTypeIntent}
                     onChanged={(next) => updateLocalJob(roleTypeId, next)}
                     onRemoved={(listingId) =>
                       removeLocalJob(roleTypeId, listingId)
@@ -442,12 +447,15 @@ export function Dashboard() {
                       hidden job{allHiddenJobs.length === 1 ? "" : "s"}
                     </button>
                     {showHidden &&
-                      allHiddenJobs.map(({ job, roleTypeId, roleTypeName }) => (
+                      allHiddenJobs.map(
+                        ({ job, roleTypeId, roleTypeName, roleTypeIntent }) => (
                         <JobRow
                           key={`${roleTypeId}-${job.id}-hidden`}
                           roleTypeId={roleTypeId}
                           job={job}
                           searchLabel={`Search: ${roleTypeName}`}
+                          roleTypeName={roleTypeName}
+                          roleTypeIntent={roleTypeIntent}
                           onChanged={(next) =>
                             updateLocalJob(roleTypeId, next)
                           }
@@ -588,6 +596,8 @@ export function Dashboard() {
                     key={j.id}
                     roleTypeId={selected.id}
                     job={j}
+                    roleTypeName={selected.name}
+                    roleTypeIntent={selected.intent}
                     highlighted={highlightJobListingId === j.listing.id}
                     onChanged={(next) => updateLocalJob(selected.id, next)}
                     onRemoved={(listingId) =>
@@ -612,6 +622,8 @@ export function Dashboard() {
                           key={j.id}
                           roleTypeId={selected.id}
                           job={j}
+                          roleTypeName={selected.name}
+                          roleTypeIntent={selected.intent}
                           onChanged={(next) => updateLocalJob(selected.id, next)}
                           onRemoved={(listingId) =>
                             removeLocalJob(selected.id, listingId)
