@@ -2,21 +2,17 @@
 
 import * as React from "react";
 import { Loader2 } from "lucide-react";
-import { stripHtml } from "@/lib/jobs/utils";
-import type { JobListingDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  roleTypeName: string;
-  roleTypeIntent?: string | null;
-  listing: JobListingDto;
+  roleTypeId: string;
+  jobListingId: string;
   className?: string;
 };
 
 export function JobFitSummary({
-  roleTypeName,
-  roleTypeIntent,
-  listing,
+  roleTypeId,
+  jobListingId,
   className,
 }: Props) {
   const [expanded, setExpanded] = React.useState(false);
@@ -35,24 +31,13 @@ export function JobFitSummary({
     setText("");
 
     try {
-      const snippet = listing.descriptionSnippet
-        ? stripHtml(listing.descriptionSnippet, 2000)
-        : undefined;
-
       const res = await fetch("/api/ai/fit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          roleTypeName,
-          roleTypeIntent: roleTypeIntent ?? undefined,
-          job: {
-            title: listing.title,
-            company: listing.company,
-            snippet,
-            locationDisplay: listing.locationDisplay ?? undefined,
-            workMode: listing.workMode,
-          },
+          roleTypeId,
+          jobListingId,
         }),
       });
 
@@ -87,7 +72,7 @@ export function JobFitSummary({
     } finally {
       setLoading(false);
     }
-  }, [listing, roleTypeIntent, roleTypeName]);
+  }, [jobListingId, roleTypeId]);
 
   React.useEffect(() => {
     return () => abortRef.current?.abort();

@@ -23,7 +23,6 @@ interface Props {
   searchLabel?: string;
   /** Search name for AI fit summary (required to show fit control). */
   roleTypeName?: string;
-  roleTypeIntent?: string | null;
   /** Brief emphasis after creating a search from a job URL. */
   highlighted?: boolean;
 }
@@ -36,7 +35,6 @@ export function JobRow({
   showHiddenControls = false,
   searchLabel,
   roleTypeName,
-  roleTypeIntent,
   highlighted = false,
 }: Props) {
   const [busy, setBusy] = React.useState(false);
@@ -65,7 +63,7 @@ export function JobRow({
   async function removeFromList() {
     if (
       !confirm(
-        "Remove this job from this list? It will not reappear after Refresh or Find more.",
+        "Remove this job from this list? It will not reappear after Fetch jobs.",
       )
     ) {
       return;
@@ -135,9 +133,8 @@ export function JobRow({
           )}
           {roleTypeName ? (
             <JobFitSummary
-              roleTypeName={roleTypeName}
-              roleTypeIntent={roleTypeIntent}
-              listing={job.listing}
+              roleTypeId={roleTypeId}
+              jobListingId={job.listing.id}
             />
           ) : null}
         </div>

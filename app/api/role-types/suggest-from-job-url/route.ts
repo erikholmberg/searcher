@@ -12,6 +12,7 @@ import {
 } from "@/lib/jobs/seed-listing";
 import { assertAiConfigured, DEFAULT_FAST_MODEL, model } from "@/lib/ai";
 import { resolveCareersListingUrl } from "@/lib/jobs/discover";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,13 @@ const ProposalSchema = z.object({
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return unauthorized();
+  const rl = enforceRateLimit(req, {
+    scope: "suggest-from-job-url",
+    userId: session.user.id,
+    limit: 10,
+    windowMs: 10 * 60_000,
+  });
+  if (rl) return rl;
 
   let body: unknown;
   try {

@@ -3,11 +3,13 @@
  * defenses (scheme/host/port, DNS → IP checks, redirect re-validation).
  */
 import dns from "node:dns/promises";
+import https from "node:https";
 import net from "node:net";
 
 const MAX_REDIRECTS = 8;
 const MAX_BODY_CHARS = 1_500_000;
 const FETCH_TIMEOUT_MS = 20_000;
+const MAX_BODY_BYTES = 4_500_000;
 
 const BLOCKED_HOSTNAMES = new Set(
   [
@@ -83,6 +85,26 @@ async function assertResolvableHostIsPublic(hostname: string): Promise<void> {
   }
 }
 
+async function resolvePublicAddress(hostname: string): Promise<{
+  address: string;
+  family: 4 | 6;
+}> {
+  let records: { address: string; family: number }[];
+  try {
+    records = await dns.lookup(hostname, { all: true });
+  } catch {
+    throw new Error(`Could not resolve host: ${hostname}`);
+  }
+  const publicRecord = records.find((r) => !isBlockedIp(r.address));
+  if (!publicRecord) {
+    throw new Error("Host resolves to a disallowed network address");
+  }
+  return {
+    address: publicRecord.address,
+    family: publicRecord.family === 6 ? 6 : 4,
+  };
+}
+
 /**
  * Validate URL for server-side fetch. Throws with a short message on reject.
  */
@@ -124,6 +146,63 @@ function contentTypeLooksHtml(ct: string | null): boolean {
   return /\btext\/html\b/i.test(ct) || /\bapplication\/xhtml\+xml\b/i.test(ct);
 }
 
+async function requestPinned(url: URL): Promise<{
+  status: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
+}> {
+  const pinned = await resolvePublicAddress(url.hostname);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        protocol: "https:",
+        hostname: url.hostname,
+        port: 443,
+        method: "GET",
+        path: `${url.pathname}${url.search}`,
+        servername: url.hostname,
+        headers: {
+          Accept:
+            "text/html,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.1",
+          "User-Agent": "searcher/0.1 (job suggest)",
+        },
+        lookup(_hostname, _opts, cb) {
+          cb(null, pinned.address, pinned.family);
+        },
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        const headers = res.headers;
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+
+        res.on("data", (chunk: Buffer) => {
+          bytes += chunk.length;
+          if (bytes > MAX_BODY_BYTES) {
+            req.destroy(new Error("Page is too large to process"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("end", () => {
+          resolve({
+            status,
+            headers,
+            body: Buffer.concat(chunks).toString("utf-8"),
+          });
+        });
+      },
+    );
+
+    req.setTimeout(FETCH_TIMEOUT_MS, () => {
+      req.destroy(new Error("Page fetch timed out"));
+    });
+    req.on("error", (err) => reject(err));
+    req.end();
+  });
+}
+
 /**
  * Follow redirects manually; re-check SSRF on each hop.
  */
@@ -134,20 +213,12 @@ export async function fetchHttpsHtmlForSuggest(
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     await assertUrlSafeForPublicFetch(current);
-
-    const res = await fetch(current, {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: {
-        Accept:
-          "text/html,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.1",
-        "User-Agent": "searcher/0.1 (job suggest)",
-      },
-    });
+    const currentUrl = new URL(current);
+    const res = await requestPinned(currentUrl);
 
     if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
+      const locHeader = res.headers.location;
+      const loc = Array.isArray(locHeader) ? locHeader[0] : locHeader;
       if (!loc || hop === MAX_REDIRECTS) {
         throw new Error("Too many redirects or missing Location header");
       }
@@ -155,14 +226,13 @@ export async function fetchHttpsHtmlForSuggest(
       continue;
     }
 
-    if (!res.ok) {
+    if (res.status < 200 || res.status > 299) {
       throw new Error(`Page fetch failed (${res.status})`);
     }
 
-    const ct = res.headers.get("content-type");
-    const buf = await res.arrayBuffer();
-    const decoder = new TextDecoder("utf-8");
-    const html = decoder.decode(buf);
+    const ctHeader = res.headers["content-type"];
+    const ct = Array.isArray(ctHeader) ? ctHeader[0] : (ctHeader ?? null);
+    const html = res.body;
     if (html.length > MAX_BODY_CHARS) {
       throw new Error("Page is too large to process");
     }
