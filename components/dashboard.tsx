@@ -15,7 +15,8 @@ import { EditRoleTypeDialog } from "@/components/edit-role-type-dialog";
 import { SourcesSheet } from "@/components/sources-sheet";
 import { api } from "@/lib/api-client";
 import { RoleTypeDto, RoleTypeJobDto } from "@/lib/types";
-import { Loader2, Plus, RefreshCw, Search, Settings2, Trash2 } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Settings2, Trash2 } from "lucide-react";
+
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { compareRoleTypeJobs } from "@/lib/compare-role-type-job";
@@ -77,8 +78,7 @@ export function Dashboard() {
   const [roleTypes, setRoleTypes] = React.useState<RoleTypeDto[] | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [refreshing, setRefreshing] = React.useState<string | null>(null);
-  const [findingMore, setFindingMore] = React.useState<string | null>(null);
+  const [fetching, setFetching] = React.useState<string | null>(null);
   const [showHidden, setShowHidden] = React.useState(false);
   const [createDialog, setCreateDialog] = React.useState<{
     open: boolean;
@@ -255,39 +255,23 @@ export function Dashboard() {
     );
   }
 
-  async function refresh(roleTypeId: string) {
-    setRefreshing(roleTypeId);
-    try {
-      const res = await api<{ addedCount: number; exhausted: boolean }>(
-        `/api/role-types/${roleTypeId}/refresh`,
-        { method: "POST" },
-      );
-      toast.success(`Refreshed (+${res.addedCount} new)`);
-      await load();
-    } catch (err) {
-      toast.error((err as Error).message || "Refresh failed");
-    } finally {
-      setRefreshing(null);
-    }
-  }
-
-  async function findMore(roleTypeId: string) {
-    setFindingMore(roleTypeId);
+  async function fetchJobs(roleTypeId: string) {
+    setFetching(roleTypeId);
     try {
       const res = await api<{ addedCount: number; exhausted: boolean }>(
         `/api/role-types/${roleTypeId}/find-more`,
         { method: "POST" },
       );
       if (res.addedCount === 0) {
-        toast.message(res.exhausted ? "No more results" : "Nothing new");
+        toast.message(res.exhausted ? "No more results" : "Nothing new this round");
       } else {
-        toast.success(`Added ${res.addedCount} new`);
+        toast.success(`Added ${res.addedCount} new job${res.addedCount === 1 ? "" : "s"}`);
       }
       await load();
     } catch (err) {
-      toast.error((err as Error).message || "Find more failed");
+      toast.error((err as Error).message || "Fetch failed");
     } finally {
-      setFindingMore(null);
+      setFetching(null);
     }
   }
 
@@ -536,34 +520,22 @@ export function Dashboard() {
                 />
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={() => refresh(selected.id)}
+                  onClick={() => fetchJobs(selected.id)}
                   disabled={
-                    refreshing === selected.id || selected.sources.length === 0
+                    fetching === selected.id || selected.sources.length === 0
                   }
-                  title="Re-sync from the start of each source (for Greenhouse/Lever/Remotive, loads every chunk in one go)"
+                  title={
+                    selected.sources.every((s) => s.paginationState != null)
+                      ? "Fetch the next batch of jobs from where each source left off. When a source is exhausted, no more jobs are available from it until you re-sync via Sources."
+                      : "Fetch jobs from your sources. For job boards (Greenhouse, Lever, Ashby), loads the full board in one go. For aggregators (Arbeitnow, Adzuna), loads the first page — fetch again to get the next."
+                  }
                 >
-                  {refreshing === selected.id ? (
+                  {fetching === selected.id ? (
                     <Loader2 className="mr-1 size-4 animate-spin" />
                   ) : (
                     <RefreshCw className="mr-1 size-4" />
                   )}
-                  Refresh
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => findMore(selected.id)}
-                  disabled={
-                    findingMore === selected.id || selected.sources.length === 0
-                  }
-                  title="Fetch the next page or chunk from each source"
-                >
-                  {findingMore === selected.id ? (
-                    <Loader2 className="mr-1 size-4 animate-spin" />
-                  ) : (
-                    <Search className="mr-1 size-4" />
-                  )}
-                  Find more
+                  Fetch jobs
                 </Button>
                 <Button
                   size="sm"
@@ -583,12 +555,12 @@ export function Dashboard() {
                   <p className="text-sm text-muted-foreground">
                     No sources on this search yet. Click{" "}
                     <strong>Sources</strong> to add at least one, then{" "}
-                    <strong>Refresh</strong>.
+                    <strong>Fetch jobs</strong>.
                   </p>
                 )}
                 {visibleJobs.length === 0 && selected.sources.length > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No jobs yet. Click <strong>Refresh</strong> to fetch.
+                    No jobs yet. Click <strong>Fetch jobs</strong> to pull from your sources.
                   </p>
                 )}
                 {visibleJobs.map((j) => (
