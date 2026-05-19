@@ -96,6 +96,20 @@ Structured ATS URLs (Greenhouse, Lever, Playlist careers pages that embed Greenh
 | `npm run db:migrate` | Create/apply migrations |
 | `npm run db:studio` | Prisma Studio |
 
+## API rate limits
+
+Expensive endpoints enforce per-user + IP rate limits and return `429` when exceeded.
+
+- Response shape: `{ error, retryAfterSeconds }`
+- Header: `Retry-After: <seconds>`
+- Current guarded routes:
+  - `POST /api/ai/fit`
+  - `POST /api/role-types/suggest-from-job-url`
+  - `POST /api/role-types/:id/find-more`
+  - `POST /api/role-types/:id/refresh`
+
+Tune limits in [`lib/rate-limit.ts`](lib/rate-limit.ts) and each route’s `enforceRateLimit(...)` call.
+
 ## Deploying
 
 Typical target: **Vercel** + **Supabase Postgres**.
