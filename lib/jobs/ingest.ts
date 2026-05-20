@@ -7,20 +7,28 @@
  * (e.g. Greenhouse boards sliced client-side).
  */
 import { prisma } from "@/lib/db";
+import {
+  deriveBoardTitlePhrase,
+  isAtsBoardKind,
+  jobTitleMatchesSearch,
+} from "@/lib/jobs/match-search-query";
 import { getProvider } from "@/lib/jobs/registry";
 import type { SourceKindString } from "@/lib/types";
 import type { Prisma } from "@prisma/client";
 import type { FetchPageResult } from "@/lib/jobs/types";
+import type { AtsBoardConfig } from "@/lib/schemas";
 
 const MAX_EXPAND_REFRESH_PAGES = 200;
 
 export interface IngestSummary {
   addedCount: number;
+  skippedIrrelevant: number;
   exhausted: boolean;
   perSource: Array<{
     sourceId: string;
     kind: SourceKindString;
     added: number;
+    skippedIrrelevant: number;
     exhausted: boolean;
     error?: string;
   }>;
@@ -32,10 +40,15 @@ export async function ingestRoleType(
 ): Promise<IngestSummary> {
   const roleType = await prisma.roleType.findUnique({
     where: { id: roleTypeId },
-    select: { intent: true },
+    select: { name: true, intent: true },
   });
   if (!roleType) {
-    return { addedCount: 0, exhausted: true, perSource: [] };
+    return {
+      addedCount: 0,
+      skippedIrrelevant: 0,
+      exhausted: true,
+      perSource: [],
+    };
   }
 
   const dismissedRows = await prisma.roleTypeDismissedJob.findMany({
@@ -60,6 +73,7 @@ export async function ingestRoleType(
 
   const perSource: IngestSummary["perSource"] = [];
   let total = 0;
+  let skippedIrrelevantTotal = 0;
   let allExhausted = sources.length > 0;
 
   for (const source of sources) {
@@ -69,6 +83,7 @@ export async function ingestRoleType(
         sourceId: source.id,
         kind: source.kind as SourceKindString,
         added: 0,
+        skippedIrrelevant: 0,
         exhausted: false,
         error: `No provider for kind ${source.kind}`,
       });
@@ -86,7 +101,7 @@ export async function ingestRoleType(
       };
     }
 
-    const providerConfig =
+    let providerConfig: unknown =
       source.kind === "careers_site"
         ? {
             ...(source.config as Record<string, unknown>),
@@ -94,9 +109,21 @@ export async function ingestRoleType(
           }
         : source.config;
 
+    if (isAtsBoardKind(source.kind)) {
+      const boardCfg = source.config as AtsBoardConfig;
+      if (!boardCfg.extraKeywords?.trim()) {
+        const phrase = deriveBoardTitlePhrase(roleType.name);
+        if (phrase) {
+          providerConfig = { ...boardCfg, extraKeywords: phrase };
+        }
+      }
+    }
+
     const expandRefresh = provider.expandRefreshToAllPages === true;
     let cursor: unknown | null = inputState;
     let added = 0;
+    let skippedIrrelevant = 0;
+    const skipTitleRelevance = source.kind === "public_job_posting";
     let lastResult: FetchPageResult = {
       jobs: [],
       nextState: null,
@@ -113,6 +140,14 @@ export async function ingestRoleType(
         );
 
         for (const j of lastResult.jobs) {
+          if (
+            !skipTitleRelevance &&
+            !jobTitleMatchesSearch(j.title, roleType.name, roleType.intent)
+          ) {
+            skippedIrrelevant += 1;
+            continue;
+          }
+
           const listing = await prisma.jobListing.upsert({
             where: { externalId: j.externalId },
             update: {
@@ -195,15 +230,18 @@ export async function ingestRoleType(
         sourceId: source.id,
         kind: source.kind as SourceKindString,
         added,
+        skippedIrrelevant,
         exhausted: lastResult.exhausted,
       });
       total += added;
+      skippedIrrelevantTotal += skippedIrrelevant;
       if (!lastResult.exhausted) allExhausted = false;
     } catch (err) {
       perSource.push({
         sourceId: source.id,
         kind: source.kind as SourceKindString,
         added: 0,
+        skippedIrrelevant: 0,
         exhausted: false,
         error: (err as Error).message,
       });
@@ -215,5 +253,10 @@ export async function ingestRoleType(
     }
   }
 
-  return { addedCount: total, exhausted: allExhausted, perSource };
+  return {
+    addedCount: total,
+    skippedIrrelevant: skippedIrrelevantTotal,
+    exhausted: allExhausted,
+    perSource,
+  };
 }

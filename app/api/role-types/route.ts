@@ -138,6 +138,7 @@ export async function POST(req: Request) {
     } catch (err) {
       ingestSummary = {
         addedCount: 0,
+        skippedIrrelevant: 0,
         exhausted: false,
         perSource: [],
         error: (err as Error).message,

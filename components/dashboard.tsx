@@ -256,14 +256,31 @@ export function Dashboard() {
   async function fetchJobs(roleTypeId: string) {
     setFetching(roleTypeId);
     try {
-      const res = await api<{ addedCount: number; exhausted: boolean }>(
-        `/api/role-types/${roleTypeId}/find-more`,
-        { method: "POST" },
-      );
+      const res = await api<{
+        addedCount: number;
+        skippedIrrelevant?: number;
+        exhausted: boolean;
+      }>(`/api/role-types/${roleTypeId}/find-more`, { method: "POST" });
       if (res.addedCount === 0) {
-        toast.message(res.exhausted ? "No more results" : "Nothing new this round");
+        const skipped = res.skippedIrrelevant ?? 0;
+        if (skipped > 0) {
+          toast.message(
+            `No new matches (${skipped} role${skipped === 1 ? "" : "s"} skipped as unrelated to this search)`,
+          );
+        } else {
+          toast.message(
+            res.exhausted ? "No more results" : "Nothing new this round",
+          );
+        }
       } else {
-        toast.success(`Added ${res.addedCount} new job${res.addedCount === 1 ? "" : "s"}`);
+        const skipped = res.skippedIrrelevant ?? 0;
+        const suffix =
+          skipped > 0
+            ? ` (${skipped} unrelated skipped)`
+            : "";
+        toast.success(
+          `Added ${res.addedCount} new job${res.addedCount === 1 ? "" : "s"}${suffix}`,
+        );
       }
       await load();
     } catch (err) {

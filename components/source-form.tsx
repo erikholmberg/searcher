@@ -177,7 +177,7 @@ export function SourceFormFields({ value, onChange, onRemove, index }: Props) {
             </Label>
             <Input
               id={id("extraKeywords")}
-              placeholder="e.g. backend"
+              placeholder="Defaults to your search name if empty"
               value={value.extraKeywords ?? ""}
               onChange={(e) =>
                 onChange({ ...value, extraKeywords: e.target.value })
