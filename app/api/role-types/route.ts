@@ -7,72 +7,21 @@ import {
   attachSeedListingToRoleType,
   pickSeedSourceId,
 } from "@/lib/jobs/seed-listing";
-import { compareRoleTypeJobs } from "@/lib/compare-role-type-job";
 import { ingestRoleType } from "@/lib/jobs/ingest";
+import { listRoleTypeSummariesForUser } from "@/lib/role-types-data";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
  * GET /api/role-types
- * Returns role types for the signed-in user, with sources and visible jobs
- * (jobs hidden in UserJobState are excluded; favorited float to the top).
+ * Lightweight search list (sources + job counts, no job rows).
  */
 export async function GET() {
   const session = await auth();
   if (!session) return unauthorized();
-  const userId = session.user.id;
-
-  const roleTypes = await prisma.roleType.findMany({
-    where: { userId },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    include: {
-      sources: { orderBy: { createdAt: "asc" } },
-      jobs: {
-        orderBy: { addedAt: "desc" },
-        include: {
-          jobListing: {
-            include: {
-              userStates: { where: { userId } },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  const shaped = roleTypes.map((rt) => ({
-    id: rt.id,
-    name: rt.name,
-    intent: rt.intent,
-    sortOrder: rt.sortOrder,
-    sources: rt.sources,
-    jobs: rt.jobs
-      .map((j) => {
-        const state = j.jobListing.userStates[0];
-        return {
-          id: j.id,
-          matchScore: j.matchScore,
-          addedAt: j.addedAt,
-          listing: {
-            id: j.jobListing.id,
-            title: j.jobListing.title,
-            company: j.jobListing.company,
-            url: j.jobListing.url,
-            descriptionSnippet: j.jobListing.descriptionSnippet,
-            postedAt: j.jobListing.postedAt,
-            source: j.jobListing.source,
-            locationDisplay: j.jobListing.locationDisplay,
-            workMode: j.jobListing.workMode,
-          },
-          favorite: state?.favorite ?? false,
-          hidden: state?.hidden ?? false,
-        };
-      })
-      .sort(compareRoleTypeJobs),
-  }));
-
-  return NextResponse.json({ roleTypes: shaped });
+  const roleTypes = await listRoleTypeSummariesForUser(session.user.id);
+  return NextResponse.json({ roleTypes });
 }
 
 /**
@@ -138,6 +87,7 @@ export async function POST(req: Request) {
     } catch (err) {
       ingestSummary = {
         addedCount: 0,
+        addedJobIds: [],
         skippedIrrelevant: 0,
         exhausted: false,
         perSource: [],

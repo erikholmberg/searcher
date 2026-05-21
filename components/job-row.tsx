@@ -8,9 +8,9 @@ import { WorkModeBadge } from "@/components/work-mode-badge";
 import { api } from "@/lib/api-client";
 import { RoleTypeJobDto } from "@/lib/types";
 import { Star, EyeOff, ExternalLink, Undo2, Trash2 } from "lucide-react";
-import { stripHtml } from "@/lib/jobs/utils";
 import { cn } from "@/lib/utils";
 import { JobFitSummary } from "@/components/job-fit-summary";
+import { JobDescriptionSnippet } from "@/components/job-description-snippet";
 
 interface Props {
   job: RoleTypeJobDto;
@@ -126,11 +126,10 @@ export function JobRow({
               {job.listing.source}
             </span>
           </div>
-          {job.listing.descriptionSnippet && (
-            <p className="text-sm text-muted-foreground mt-2 line-clamp-4 break-words">
-              {stripHtml(job.listing.descriptionSnippet, 1500)}
-            </p>
-          )}
+          <JobDescriptionSnippet
+            jobListingId={job.listing.id}
+            initialSnippet={job.listing.descriptionSnippet}
+          />
           {roleTypeName ? (
             <JobFitSummary
               roleTypeId={roleTypeId}

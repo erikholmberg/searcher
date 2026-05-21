@@ -44,12 +44,19 @@ export interface RoleTypeSourceDto {
   lastErrorMessage: string | null;
 }
 
-export interface RoleTypeDto {
+/** Search metadata without job rows (from GET /api/role-types). */
+export interface RoleTypeSummaryDto {
   id: string;
   name: string;
   intent: string | null;
   sortOrder: number;
   sources: RoleTypeSourceDto[];
+  visibleJobCount: number;
+  totalJobCount: number;
+}
+
+/** Search with jobs loaded (client-side aggregate). */
+export interface RoleTypeDto extends RoleTypeSummaryDto {
   jobs: RoleTypeJobDto[];
 }
 

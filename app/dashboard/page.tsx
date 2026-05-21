@@ -1,6 +1,8 @@
 import { Suspense } from "react";
+import { auth } from "@/auth";
 import { Dashboard } from "@/components/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { listRoleTypeSummariesForUser } from "@/lib/role-types-data";
 
 export const metadata = { title: "Dashboard — Searcher" };
 
@@ -20,10 +22,15 @@ function DashboardFallback() {
   );
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await auth();
+  const initialSummaries = session?.user?.id
+    ? await listRoleTypeSummariesForUser(session.user.id)
+    : [];
+
   return (
     <Suspense fallback={<DashboardFallback />}>
-      <Dashboard />
+      <Dashboard initialSummaries={initialSummaries} />
     </Suspense>
   );
 }

@@ -1,10 +1,15 @@
 import type { JobProvider } from "@/lib/jobs/types";
 import {
+  boardFetchCacheKey,
+  getBoardFetchCache,
+  setBoardFetchCache,
+} from "@/lib/jobs/board-fetch-cache";
+import {
   JOB_BOARD_SLICE_SIZE,
   resolveBoardSliceStart,
   type BoardSliceState,
 } from "@/lib/jobs/slice-pagination";
-import { inferWorkMode, parseDate, stripHtml } from "@/lib/jobs/utils";
+import { inferWorkMode, parseDate } from "@/lib/jobs/utils";
 import type { AtsBoardConfig } from "@/lib/schemas";
 import type { WorkMode } from "@/lib/types";
 
@@ -37,15 +42,20 @@ export const leverProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
       };
     }
 
-    const site = encodeURIComponent(config.boardToken);
-    const url = `https://api.lever.co/v0/postings/${site}?mode=json`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "searcher/0.1" },
-    });
-    if (!res.ok) throw new Error(`Lever fetch failed (${res.status})`);
-    const body = (await res.json()) as LeverJob[];
-
     const filter = config.extraKeywords?.toLowerCase().trim();
+    const cacheKey = boardFetchCacheKey("lever", config.boardToken, filter);
+    let body = getBoardFetchCache<LeverJob[]>(cacheKey);
+    if (!body) {
+      const site = encodeURIComponent(config.boardToken);
+      const url = `https://api.lever.co/v0/postings/${site}?mode=json`;
+      const res = await fetch(url, {
+        headers: { Accept: "application/json", "User-Agent": "searcher/0.1" },
+      });
+      if (!res.ok) throw new Error(`Lever fetch failed (${res.status})`);
+      body = (await res.json()) as LeverJob[];
+      setBoardFetchCache(cacheKey, body);
+    }
+
     const filtered = filter
       ? body.filter((j) => j.text?.toLowerCase().includes(filter))
       : body;
@@ -56,9 +66,6 @@ export const leverProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
     );
 
     const jobs = slice.map((j) => {
-      const snippet =
-        j.descriptionPlain?.slice(0, 800) ??
-        (j.description ? stripHtml(j.description) : null);
       const wt = j.workplaceType?.toLowerCase();
       const workMode: WorkMode =
         wt === "remote"
@@ -68,7 +75,7 @@ export const leverProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
             : wt === "on-site" || wt === "onsite"
               ? "onsite"
               : inferWorkMode(
-                  [j.categories?.location, j.categories?.commitment, snippet]
+                  [j.categories?.location, j.categories?.commitment]
                     .filter(Boolean)
                     .join(" "),
                 );
@@ -78,7 +85,7 @@ export const leverProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
         title: j.text,
         company: config.boardToken,
         url: j.hostedUrl ?? j.applyUrl ?? "",
-        descriptionSnippet: snippet,
+        descriptionSnippet: null,
         postedAt: parseDate(j.createdAt ?? null),
         locationDisplay: j.categories?.location ?? null,
         workMode,

@@ -3,6 +3,10 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  readFitSummary,
+  writeFitSummary,
+} from "@/lib/fit-summary-cache";
 
 type Props = {
   roleTypeId: string;
@@ -66,6 +70,7 @@ export function JobFitSummary({
         accumulated += decoder.decode(value, { stream: true });
         setText(accumulated);
       }
+      writeFitSummary(roleTypeId, jobListingId, accumulated);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError((err as Error).message || "Could not load fit summary");
@@ -82,6 +87,11 @@ export function JobFitSummary({
     const next = !expanded;
     setExpanded(next);
     if (next && !text && !loading) {
+      const cached = readFitSummary(roleTypeId, jobListingId);
+      if (cached) {
+        setText(cached);
+        return;
+      }
       void load();
     }
   }

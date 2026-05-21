@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { notFound, unauthorized } from "@/lib/http";
 import { ingestRoleType } from "@/lib/jobs/ingest";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { listAddedJobsForRoleType } from "@/lib/role-types-data";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -33,5 +34,10 @@ export async function POST(
   if (!rt || rt.userId !== session.user.id) return notFound("RoleType");
 
   const summary = await ingestRoleType(id, { mode: "find-more" });
-  return NextResponse.json(summary);
+  const addedJobs = await listAddedJobsForRoleType(
+    session.user.id,
+    id,
+    summary.addedJobIds,
+  );
+  return NextResponse.json({ ...summary, addedJobs });
 }

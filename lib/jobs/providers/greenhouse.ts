@@ -1,10 +1,15 @@
 import type { JobProvider } from "@/lib/jobs/types";
 import {
+  boardFetchCacheKey,
+  getBoardFetchCache,
+  setBoardFetchCache,
+} from "@/lib/jobs/board-fetch-cache";
+import {
   JOB_BOARD_SLICE_SIZE,
   resolveBoardSliceStart,
   type BoardSliceState,
 } from "@/lib/jobs/slice-pagination";
-import { inferWorkMode, stripHtml } from "@/lib/jobs/utils";
+import { inferWorkMode } from "@/lib/jobs/utils";
 import type { AtsBoardConfig } from "@/lib/schemas";
 
 interface GreenhouseJob {
@@ -39,17 +44,26 @@ export const greenhouseProvider: JobProvider<AtsBoardConfig, BoardSliceState> = 
       };
     }
 
-    const token = encodeURIComponent(config.boardToken);
-    const url = `https://boards-api.greenhouse.io/v1/boards/${token}/jobs?content=true`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "searcher/0.1" },
-    });
-    if (!res.ok) {
-      throw new Error(`Greenhouse fetch failed (${res.status})`);
-    }
-    const body = (await res.json()) as GreenhouseResp;
-
     const filter = config.extraKeywords?.toLowerCase().trim();
+    const cacheKey = boardFetchCacheKey(
+      "greenhouse",
+      config.boardToken,
+      filter,
+    );
+    let body = getBoardFetchCache<GreenhouseResp>(cacheKey);
+    if (!body) {
+      const token = encodeURIComponent(config.boardToken);
+      const url = `https://boards-api.greenhouse.io/v1/boards/${token}/jobs`;
+      const res = await fetch(url, {
+        headers: { Accept: "application/json", "User-Agent": "searcher/0.1" },
+      });
+      if (!res.ok) {
+        throw new Error(`Greenhouse fetch failed (${res.status})`);
+      }
+      body = (await res.json()) as GreenhouseResp;
+      setBoardFetchCache(cacheKey, body);
+    }
+
     const filtered = filter
       ? body.jobs.filter((j) => j.title.toLowerCase().includes(filter))
       : body.jobs;
@@ -60,19 +74,16 @@ export const greenhouseProvider: JobProvider<AtsBoardConfig, BoardSliceState> = 
     );
 
     const jobs = slice.map((j) => {
-      const snippet = j.content ? stripHtml(j.content) : null;
       return {
         externalId: `greenhouse:${config.boardToken}:${j.id}`,
         source: `greenhouse:${config.boardToken}`,
         title: j.title,
         company: config.boardToken,
         url: j.absolute_url,
-        descriptionSnippet: snippet,
+        descriptionSnippet: null,
         postedAt: j.updated_at ? new Date(j.updated_at) : null,
         locationDisplay: j.location?.name ?? null,
-        workMode: inferWorkMode(
-          [j.location?.name, snippet].filter(Boolean).join(" "),
-        ),
+        workMode: inferWorkMode(j.location?.name ?? ""),
       };
     });
 

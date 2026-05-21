@@ -1,5 +1,10 @@
 import type { JobProvider } from "@/lib/jobs/types";
 import {
+  boardFetchCacheKey,
+  getBoardFetchCache,
+  setBoardFetchCache,
+} from "@/lib/jobs/board-fetch-cache";
+import {
   JOB_BOARD_SLICE_SIZE,
   resolveBoardSliceStart,
   type BoardSliceState,
@@ -74,18 +79,23 @@ export const ashbyProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
       };
     }
 
-    const board = encodeURIComponent(config.boardToken);
-    const url = `https://api.ashbyhq.com/posting-api/job-board/${board}`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "searcher/0.1" },
-    });
-    if (!res.ok) {
-      throw new Error(`Ashby fetch failed (${res.status})`);
+    const filter = config.extraKeywords?.toLowerCase().trim();
+    const cacheKey = boardFetchCacheKey("ashby", config.boardToken, filter);
+    let body = getBoardFetchCache<AshbyResp>(cacheKey);
+    if (!body) {
+      const board = encodeURIComponent(config.boardToken);
+      const url = `https://api.ashbyhq.com/posting-api/job-board/${board}`;
+      const res = await fetch(url, {
+        headers: { Accept: "application/json", "User-Agent": "searcher/0.1" },
+      });
+      if (!res.ok) {
+        throw new Error(`Ashby fetch failed (${res.status})`);
+      }
+      body = (await res.json()) as AshbyResp;
+      setBoardFetchCache(cacheKey, body);
     }
-    const body = (await res.json()) as AshbyResp;
     const listed = body.jobs.filter((j) => j.isListed !== false && j.title && j.jobUrl);
 
-    const filter = config.extraKeywords?.toLowerCase().trim();
     const filtered = filter
       ? listed.filter((j) => j.title.toLowerCase().includes(filter))
       : listed;
@@ -96,9 +106,6 @@ export const ashbyProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
     );
 
     const jobs = slice.map((j) => {
-      const snippet =
-        j.descriptionPlain?.slice(0, 800) ??
-        (j.descriptionHtml ? stripHtml(j.descriptionHtml) : null);
       const id = ashbyJobId(j);
       return {
         externalId: `ashby:${config.boardToken}:${id}`,
@@ -106,7 +113,7 @@ export const ashbyProvider: JobProvider<AtsBoardConfig, BoardSliceState> = {
         title: j.title,
         company: config.boardToken,
         url: j.jobUrl,
-        descriptionSnippet: snippet,
+        descriptionSnippet: null,
         postedAt: j.publishedAt ? new Date(j.publishedAt) : null,
         locationDisplay: j.location ?? null,
         workMode: ashbyWorkMode(j),
