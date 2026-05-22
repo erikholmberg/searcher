@@ -57,6 +57,10 @@ export async function POST(req: Request) {
   try {
     page = await loadJobPageForSuggest(parsed.data.url);
   } catch (err) {
+    console.error("[suggest-from-job-url] page load failed", {
+      url: parsed.data.url,
+      error: err,
+    });
     return jsonError(`Failed to read page: ${(err as Error).message}`, 502);
   }
 
@@ -114,6 +118,11 @@ export async function POST(req: Request) {
       prompt,
     });
   } catch (err) {
+    console.error("[suggest-from-job-url] AI proposal failed", {
+      url: parsed.data.url,
+      pageKind: page.kind,
+      error: err,
+    });
     return jsonError(
       `AI proposal failed: ${(err as Error).message}`,
       502,

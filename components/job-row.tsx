@@ -127,7 +127,6 @@ export function JobRow({
             </span>
           </div>
           <JobDescriptionSnippet
-            jobListingId={job.listing.id}
             initialSnippet={job.listing.descriptionSnippet}
           />
           {roleTypeName ? (

@@ -20,12 +20,8 @@ type JobRowWithListing = {
   };
 };
 
-export function shapeRoleTypeJob(
-  j: JobRowWithListing,
-  options?: { includeSnippet?: boolean },
-): RoleTypeJobDto {
+export function shapeRoleTypeJob(j: JobRowWithListing): RoleTypeJobDto {
   const state = j.jobListing.userStates[0];
-  const includeSnippet = options?.includeSnippet !== false;
   return {
     id: j.id,
     matchScore: j.matchScore,
@@ -35,9 +31,7 @@ export function shapeRoleTypeJob(
       title: j.jobListing.title,
       company: j.jobListing.company,
       url: j.jobListing.url,
-      descriptionSnippet: includeSnippet
-        ? j.jobListing.descriptionSnippet
-        : null,
+      descriptionSnippet: j.jobListing.descriptionSnippet,
       postedAt: j.jobListing.postedAt?.toISOString() ?? null,
       source: j.jobListing.source,
       locationDisplay: j.jobListing.locationDisplay,
@@ -50,11 +44,8 @@ export function shapeRoleTypeJob(
 
 export function shapeRoleTypeJobs(
   jobs: JobRowWithListing[],
-  options?: { includeSnippet?: boolean },
 ): RoleTypeJobDto[] {
-  return jobs
-    .map((j) => shapeRoleTypeJob(j, options))
-    .sort(compareRoleTypeJobs);
+  return jobs.map(shapeRoleTypeJob).sort(compareRoleTypeJobs);
 }
 
 export function shapeRoleTypeSource(

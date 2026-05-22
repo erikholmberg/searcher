@@ -7,14 +7,13 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/jobs
- * Flat list of all jobs across searches (for All Jobs view).
+ * Flat list of all jobs across searches (for All Jobs view). Snippets are
+ * bundled inline.
  */
-export async function GET(req: Request) {
+export async function GET() {
   const session = await auth();
   if (!session) return unauthorized();
-  const url = new URL(req.url);
-  const includeSnippet = url.searchParams.get("snippets") === "1";
 
-  const rows = await listAllJobsForUser(session.user.id, { includeSnippet });
+  const rows = await listAllJobsForUser(session.user.id);
   return NextResponse.json({ rows });
 }

@@ -167,8 +167,21 @@ async function requestPinned(url: URL): Promise<{
             "text/html,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.1",
           "User-Agent": "searcher/0.1 (job suggest)",
         },
-        lookup(_hostname, _opts, cb) {
-          cb(null, pinned.address, pinned.family);
+        lookup(_hostname, opts, cb) {
+          // Node's https.request may invoke `lookup` in either single or
+          // multi-address mode (controlled by `opts.all`). When `all: true`,
+          // the callback expects a single `addresses[]` argument; otherwise
+          // it expects `(address, family)`. Mismatching the shape produces
+          // the cryptic `ERR_INVALID_IP_ADDRESS: undefined` failure mode.
+          const single = { address: pinned.address, family: pinned.family };
+          if ((opts as { all?: boolean } | undefined)?.all) {
+            (cb as unknown as (err: Error | null, addrs: typeof single[]) => void)(
+              null,
+              [single],
+            );
+          } else {
+            cb(null, pinned.address, pinned.family);
+          }
         },
       },
       (res) => {

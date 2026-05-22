@@ -4,6 +4,12 @@ import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 
+/**
+ * JWT session strategy: the signed session JWT is the source of truth for
+ * `session.user.id`, so per-request session lookups (e.g. every API route)
+ * don't hit the database. The adapter still owns user / account / OAuth
+ * persistence — only the per-request `Session` lookup is short-circuited.
+ */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -12,14 +18,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.AUTH_GITHUB_SECRET,
     }),
   ],
-  session: { strategy: "database" },
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/signin",
   },
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user?.id) {
+        token.sub = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
       }
       return session;
     },

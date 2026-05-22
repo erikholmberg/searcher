@@ -203,6 +203,7 @@ model RoleTypeJob {
 
   @@unique([roleTypeId, jobListingId])
   @@index([roleTypeId])
+  @@index([roleTypeId, addedAt])
   @@index([jobListingId])
 }
 
