@@ -3,6 +3,25 @@
  */
 export type WorkMode = "remote" | "hybrid" | "onsite" | "unknown";
 
+export type JobStatus =
+  | "saved"
+  | "applied"
+  | "screening"
+  | "interviewing"
+  | "offer"
+  | "rejected"
+  | "closed";
+
+export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: string }[] = [
+  { value: "saved",        label: "Saved",        color: "text-muted-foreground" },
+  { value: "applied",      label: "Applied",      color: "text-blue-500" },
+  { value: "screening",    label: "Screening",    color: "text-yellow-500" },
+  { value: "interviewing", label: "Interviewing", color: "text-orange-500" },
+  { value: "offer",        label: "Offer",        color: "text-green-500" },
+  { value: "rejected",     label: "Rejected",     color: "text-red-500" },
+  { value: "closed",       label: "Closed",       color: "text-muted-foreground" },
+];
+
 export type SourceKindString =
   | "adzuna_query"
   | "arbeitnow_query"
@@ -32,6 +51,8 @@ export interface RoleTypeJobDto {
   listing: JobListingDto;
   favorite: boolean;
   hidden: boolean;
+  status: JobStatus;
+  notes: string | null;
 }
 
 export interface RoleTypeSourceDto {

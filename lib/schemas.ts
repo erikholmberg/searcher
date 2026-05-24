@@ -125,9 +125,21 @@ export type SourceUpdate = z.infer<typeof SourceUpdate>;
 
 // --- Job state ------------------------------------------------------------
 
+export const JobStatusEnum = z.enum([
+  "saved",
+  "applied",
+  "screening",
+  "interviewing",
+  "offer",
+  "rejected",
+  "closed",
+]);
+
 export const JobStateUpdate = z.object({
   favorite: z.boolean().optional(),
   hidden: z.boolean().optional(),
+  status: JobStatusEnum.optional(),
+  notes: z.string().max(10000).nullable().optional(),
 });
 export type JobStateUpdate = z.infer<typeof JobStateUpdate>;
 

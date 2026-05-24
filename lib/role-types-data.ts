@@ -40,7 +40,7 @@ function jobRowSelect(userId: string) {
         ...JOB_LISTING_LIST_SELECT,
         userStates: {
           where: { userId },
-          select: { favorite: true, hidden: true },
+          select: { favorite: true, hidden: true, status: true, notes: true },
         },
       },
     },

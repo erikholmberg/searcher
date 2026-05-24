@@ -1,5 +1,5 @@
 import { compareRoleTypeJobs } from "@/lib/compare-role-type-job";
-import type { RoleTypeJobDto, RoleTypeSourceDto } from "@/lib/types";
+import type { JobStatus, RoleTypeJobDto, RoleTypeSourceDto } from "@/lib/types";
 import type { Prisma } from "@prisma/client";
 
 type JobRowWithListing = {
@@ -16,7 +16,7 @@ type JobRowWithListing = {
     source: string;
     locationDisplay: string | null;
     workMode: string;
-    userStates: Array<{ favorite: boolean; hidden: boolean }>;
+    userStates: Array<{ favorite: boolean; hidden: boolean; status: string; notes: string | null }>;
   };
 };
 
@@ -39,6 +39,8 @@ export function shapeRoleTypeJob(j: JobRowWithListing): RoleTypeJobDto {
     },
     favorite: state?.favorite ?? false,
     hidden: state?.hidden ?? false,
+    status: (state?.status ?? "saved") as JobStatus,
+    notes: state?.notes ?? null,
   };
 }
 

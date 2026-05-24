@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 /**
  * PATCH /api/jobs/:jobListingId/state
- * Body: { favorite?: boolean, hidden?: boolean }
+ * Body: { favorite?, hidden?, status?, notes? }
  *
  * Upserts the per-user state for this job.
  */
@@ -29,9 +29,14 @@ export async function PATCH(
   }
   const parsed = JobStateUpdate.safeParse(body);
   if (!parsed.success) return zodError(parsed.error);
-  const { favorite, hidden } = parsed.data;
-  if (favorite === undefined && hidden === undefined) {
-    return jsonError("Provide favorite and/or hidden", 400);
+  const { favorite, hidden, status, notes } = parsed.data;
+  if (
+    favorite === undefined &&
+    hidden === undefined &&
+    status === undefined &&
+    notes === undefined
+  ) {
+    return jsonError("Provide at least one field to update", 400);
   }
 
   const exists = await prisma.jobListing.findUnique({
@@ -40,18 +45,11 @@ export async function PATCH(
   });
   if (!exists) return notFound("Job");
 
-  // Authorization guard: user can only mutate state for jobs surfaced to one
-  // of their role types.
   const linkedToUser = await prisma.roleTypeJob.findFirst({
-    where: {
-      jobListingId,
-      roleType: { userId },
-    },
+    where: { jobListingId, roleType: { userId } },
     select: { id: true },
   });
-  if (!linkedToUser) {
-    return jsonError("Forbidden", 403);
-  }
+  if (!linkedToUser) return jsonError("Forbidden", 403);
 
   const now = new Date();
   const state = await prisma.userJobState.upsert({
@@ -59,14 +57,19 @@ export async function PATCH(
     update: {
       ...(favorite !== undefined ? { favorite, favoritedAt: favorite ? now : null } : {}),
       ...(hidden !== undefined ? { hidden, hiddenAt: hidden ? now : null } : {}),
+      ...(status !== undefined ? { status, statusAt: now } : {}),
+      ...(notes !== undefined ? { notes } : {}),
     },
     create: {
       userId,
       jobListingId,
       favorite: favorite ?? false,
       hidden: hidden ?? false,
+      status: status ?? "saved",
+      notes: notes ?? null,
       favoritedAt: favorite ? now : null,
       hiddenAt: hidden ? now : null,
+      statusAt: status !== undefined ? now : null,
     },
   });
 

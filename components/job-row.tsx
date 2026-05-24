@@ -4,10 +4,18 @@ import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { WorkModeBadge } from "@/components/work-mode-badge";
 import { api } from "@/lib/api-client";
-import { RoleTypeJobDto } from "@/lib/types";
-import { Star, EyeOff, ExternalLink, Undo2, Trash2 } from "lucide-react";
+import { JOB_STATUS_OPTIONS, RoleTypeJobDto } from "@/lib/types";
+import { Star, EyeOff, ExternalLink, Undo2, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { JobFitSummary } from "@/components/job-fit-summary";
 import { JobDescriptionSnippet } from "@/components/job-description-snippet";
@@ -16,14 +24,10 @@ interface Props {
   job: RoleTypeJobDto;
   roleTypeId: string;
   onChanged: (job: RoleTypeJobDto) => void;
-  /** Called after the job is removed from this role type (listing id). */
   onRemoved: (listingId: string) => void;
   showHiddenControls?: boolean;
-  /** When set (e.g. All jobs view), shown as muted context under the title. */
   searchLabel?: string;
-  /** Search name for AI fit summary (required to show fit control). */
   roleTypeName?: string;
-  /** Brief emphasis after creating a search from a job URL. */
   highlighted?: boolean;
 }
 
@@ -38,12 +42,23 @@ export function JobRow({
   highlighted = false,
 }: Props) {
   const [busy, setBusy] = React.useState(false);
+  const [showNotes, setShowNotes] = React.useState(
+    !!job.notes && job.notes.trim().length > 0,
+  );
+  const notesTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function patch(state: { favorite?: boolean; hidden?: boolean }) {
+  async function patch(state: {
+    favorite?: boolean;
+    hidden?: boolean;
+    status?: RoleTypeJobDto["status"];
+    notes?: string | null;
+  }) {
     const next: RoleTypeJobDto = {
       ...job,
       favorite: state.favorite ?? job.favorite,
       hidden: state.hidden ?? job.hidden,
+      status: state.status ?? job.status,
+      notes: state.notes !== undefined ? state.notes : job.notes,
     };
     onChanged(next);
     setBusy(true);
@@ -58,6 +73,13 @@ export function JobRow({
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleNotesChange(value: string) {
+    if (notesTimeoutRef.current) clearTimeout(notesTimeoutRef.current);
+    notesTimeoutRef.current = setTimeout(() => {
+      void patch({ notes: value || null });
+    }, 800);
   }
 
   async function removeFromList() {
@@ -86,6 +108,8 @@ export function JobRow({
     ? new Date(job.listing.postedAt).toLocaleDateString()
     : null;
   const addedLabel = new Date(job.addedAt).toLocaleDateString();
+
+  const statusOption = JOB_STATUS_OPTIONS.find((o) => o.value === job.status);
 
   return (
     <Card
@@ -125,6 +149,34 @@ export function JobRow({
             <span className="text-muted-foreground text-xs">
               {job.listing.source}
             </span>
+            {/* Status picker */}
+            <Select
+              value={job.status}
+              onValueChange={(val) =>
+                void patch({ status: val as RoleTypeJobDto["status"] })
+              }
+              disabled={busy}
+            >
+              <SelectTrigger
+                className={cn(
+                  "h-5 text-xs px-1.5 border-0 bg-transparent shadow-none focus:ring-0 w-auto gap-1",
+                  statusOption?.color,
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {JOB_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt.value}
+                    value={opt.value}
+                    className={cn("text-xs", opt.color)}
+                  >
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <JobDescriptionSnippet
             initialSnippet={job.listing.descriptionSnippet}
@@ -135,6 +187,31 @@ export function JobRow({
               jobListingId={job.listing.id}
             />
           ) : null}
+
+          {/* Notes */}
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => setShowNotes((s) => !s)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {showNotes ? (
+                <ChevronUp className="size-3" />
+              ) : (
+                <ChevronDown className="size-3" />
+              )}
+              {showNotes ? "Hide notes" : job.notes ? "Notes" : "Add notes"}
+            </button>
+            {showNotes && (
+              <Textarea
+                key={job.listing.id}
+                className="mt-1.5 text-sm min-h-[72px] resize-y"
+                placeholder="Recruiter name, salary range, interview notes…"
+                defaultValue={job.notes ?? ""}
+                onChange={(e) => handleNotesChange(e.target.value)}
+              />
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1 shrink-0">
