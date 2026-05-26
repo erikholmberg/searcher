@@ -1,15 +1,15 @@
 # Searcher
 
-Personal job search dashboard: define **searches** (tracks like “Staff backend” or “ML platform”), attach **sources** that pull listings from job boards and aggregators, then **refresh** and **find more** without duplicating rows. Sign in with GitHub; favorites and hidden jobs persist per user.
+Personal job search dashboard: define **searches** (tracks like “Staff backend” or “ML platform”), attach **sources** that pull listings from job boards and aggregators, then fetch more jobs over time without duplicating rows. Sign in with GitHub; favorites, hidden jobs, statuses, and notes persist per user.
 
 Built with **Next.js 16**, **React 19**, **Prisma** (Postgres), **Auth.js**, **Tailwind** + **shadcn/ui**, and **Vercel AI Gateway** for AI features.
 
 ## Features
 
-- **Searches** — Name, optional intent (used for AI fit summaries), and multiple sources per search.
+- **Searches** — Name, optional intent (used for AI fit summaries), multiple sources per search, and incremental fetching as each source paginates.
 - **Create from a job URL** — Paste or **drag a public `https` posting URL** onto the dashboard; the app fetches the page (SSRF-safe), adds **one source** from that URL, uses AI for name/intent, creates the search, and **attaches that job** immediately.
 - **All Jobs** — Header link to see every job across searches (favorites first, then date added).
-- **Job list** — Favorite (pinned), hide (dismissed from the search; ingest skips them), remove from the list, open posting URL.
+- **Job workflow** — Favorite (pinned), set status (`saved`, `applied`, `screening`, `interviewing`, `offer`, `rejected`, `closed`), keep notes, hide from your lists, remove from a single search, and open the posting URL.
 - **AI fit** — Streamed “why this might fit” blurb per job vs. the search intent (requires `AI_GATEWAY_API_KEY`).
 
 ## Job sources
